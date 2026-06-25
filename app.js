@@ -797,13 +797,13 @@ function shouldExpandTreeItem(rootTableKey, parentTableKey, depth, childTableKey
 function getTreeNodeToneClass(tableKey, record) {
   if (tableKey === "people") {
     const ventureName = record?.venture || "";
-    if (!ventureName || ventureName === "ATit Capital") return "";
+    if (!ventureName || ventureName === "ATIT") return "";
     return getVentureTone(ventureName);
   }
 
   if (tableKey === "ventures") {
     const ventureName = record?.name || "";
-    if (!ventureName || ventureName === "ATit Capital") return "";
+    if (!ventureName || ventureName === "ATIT") return "";
     return getVentureTone(ventureName);
   }
 
