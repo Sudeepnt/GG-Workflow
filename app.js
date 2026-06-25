@@ -1526,10 +1526,6 @@ function renderAdminWorkspace() {
   return `
     <div class="admin-workspace">
       <div class="admin-workspace-head">
-        <div>
-          <div class="mini">Users</div>
-          <strong>${userAccounts.length} active records for access control</strong>
-        </div>
         <button class="new-record-button" type="button" id="add-user-button">+ Add user</button>
       </div>
       <div class="admin-user-list">

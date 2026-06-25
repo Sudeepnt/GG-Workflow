@@ -261,6 +261,13 @@ body.modal-open {
   align-items: center;
 }
 
+.admin-panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
 .dashboard-role-shell {
   display: grid;
   gap: 8px;
@@ -323,6 +330,7 @@ input[type="search"] {
 .hero-minimal {
   display: grid;
   gap: 24px;
+  align-content: start;
 }
 
 .hero-head {
@@ -343,13 +351,14 @@ input[type="search"] {
 .board {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0;
+  gap: 1px;
   border: 1px solid var(--line);
+  background: var(--line);
+  align-self: start;
 }
 
 .table-tile {
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border: 0;
   border-radius: 0;
   background: #ffffff;
   text-align: left;
@@ -365,14 +374,6 @@ input[type="search"] {
 
 .table-tile:hover {
   background: #fafafa;
-}
-
-.table-tile:nth-child(5n) {
-  border-right: 0;
-}
-
-.table-tile:nth-last-child(-n + 5) {
-  border-bottom: 0;
 }
 
 .table-tile-head {
@@ -1651,22 +1652,6 @@ input[type="search"] {
     font-size: 22px;
   }
 
-  .table-tile:nth-child(5n) {
-    border-right: 1px solid var(--line);
-  }
-
-  .table-tile:nth-child(4n) {
-    border-right: 0;
-  }
-
-  .table-tile:nth-last-child(-n + 5) {
-    border-bottom: 1px solid var(--line);
-  }
-
-  .table-tile:nth-last-child(-n + 4) {
-    border-bottom: 0;
-  }
-
   .grid-2,
   .workspace-grid,
   .task-workspace {
@@ -1769,23 +1754,6 @@ input[type="search"] {
     width: 26px;
     height: 26px;
     font-size: 16px;
-  }
-
-  .table-tile:nth-child(4n),
-  .table-tile:nth-child(5n) {
-    border-right: 1px solid var(--line);
-  }
-
-  .table-tile:nth-child(1n) {
-    border-right: 0;
-  }
-
-  .table-tile:nth-last-child(-n + 4) {
-    border-bottom: 1px solid var(--line);
-  }
-
-  .table-tile:last-child {
-    border-bottom: 0;
   }
 
   .detail-header {
