@@ -308,6 +308,7 @@ const state = {
 };
 
 const el = {};
+let confirmResolve = null;
 
 const arrayFields = new Set(["verticals", "tags"]);
 
@@ -1139,6 +1140,232 @@ function renderBoard() {
   });
 }
 
+function getTodayKey() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+function formatDashboardDate(value, includeTime = false) {
+  if (!value) return "No date";
+  const normalized = includeTime && value.includes(" ") ? value.replace(" ", "T") : value;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const options = includeTime
+    ? { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }
+    : { day: "2-digit", month: "short" };
+
+  return new Intl.DateTimeFormat("en-GB", options).format(date);
+}
+
+function getDaysUntil(dateKey) {
+  if (!dateKey) return null;
+  const target = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+  const today = new Date(`${getTodayKey()}T00:00:00`);
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
+
+function formatAttentionTiming(dateKey) {
+  const days = getDaysUntil(dateKey);
+  if (days == null) return "";
+  if (days < 0) return `${Math.abs(days)}d late`;
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `In ${days}d`;
+}
+
+function getProjectLinkedSummary(projectName) {
+  const openTasks = data.tasks
+    .filter((task) => task.project === projectName && !["Done", "Cancelled"].includes(task.status));
+  const upcomingEvents = data.events
+    .filter((event) => event.project === projectName && event.date >= getTodayKey())
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)));
+
+  return {
+    taskCount: openTasks.length,
+    nextTaskDate: openTasks.map((task) => task.due_date).filter(Boolean).sort()[0] ?? null,
+    nextEventDate: upcomingEvents[0]?.date ?? null,
+  };
+}
+
+function getTaskLinkedSummary(taskTitle, projectName) {
+  const linkedProject = data.projects.find((project) => project.name === projectName) ?? null;
+  const nextEvent = data.events
+    .filter((event) => event.date >= getTodayKey())
+    .filter((event) => event.task === taskTitle || (projectName && event.project === projectName))
+    .sort((left, right) => {
+      const leftKey = `${left.date || ""} ${left.start || ""}`;
+      const rightKey = `${right.date || ""} ${right.start || ""}`;
+      return leftKey.localeCompare(rightKey);
+    })[0] ?? null;
+
+  return {
+    projectTargetDate: linkedProject?.target_date ?? null,
+    nextEventDate: nextEvent?.date ?? null,
+    nextEventTitle: nextEvent?.title ?? null,
+  };
+}
+
+function getEventLinkedSummary(eventItem) {
+  const linkedProject = data.projects.find((project) => project.name === eventItem.project) ?? null;
+  const linkedTask = data.tasks.find((task) => task.title === eventItem.task) ?? null;
+
+  return {
+    projectTargetDate: linkedProject?.target_date ?? null,
+    taskDueDate: linkedTask?.due_date ?? null,
+    taskOwner: linkedTask?.owner ?? null,
+  };
+}
+
+function getDashboardAttentionItems() {
+  const todayKey = getTodayKey();
+  const items = [];
+
+  data.projects.forEach((project) => {
+    if (!project.target_date || !["Active", "Blocked", "On-Hold"].includes(project.status)) return;
+    const linked = getProjectLinkedSummary(project.name);
+    items.push({
+      tableKey: "projects",
+      recordId: project.id,
+      kind: "Project",
+      title: project.name,
+      date: project.target_date,
+      dateLabel: formatDashboardDate(project.target_date),
+      timingLabel: formatAttentionTiming(project.target_date),
+      tone: "tone-1",
+      status: project.status,
+      details: [
+        { label: "Venture", value: project.venture || "Unassigned" },
+        { label: "Lead", value: project.lead || "Unassigned" },
+        { label: "Open tasks", value: String(linked.taskCount) },
+        { label: "Next task due", value: linked.nextTaskDate ? formatDashboardDate(linked.nextTaskDate) : "None" },
+        { label: "Next event", value: linked.nextEventDate ? formatDashboardDate(linked.nextEventDate) : "None" },
+      ],
+    });
+  });
+
+  data.tasks.forEach((task) => {
+    if (!task.due_date || ["Done", "Cancelled"].includes(task.status)) return;
+    const linked = getTaskLinkedSummary(task.title, task.project);
+    items.push({
+      tableKey: "tasks",
+      recordId: task.id,
+      kind: "Task",
+      title: task.title,
+      date: task.due_date,
+      dateLabel: formatDashboardDate(task.due_date),
+      timingLabel: formatAttentionTiming(task.due_date),
+      tone: "tone-2",
+      status: task.status,
+      details: [
+        { label: "Project", value: task.project || "Unassigned" },
+        { label: "Owner", value: task.owner || "Unassigned" },
+        { label: "Priority", value: task.priority || "Unset" },
+        { label: "Project target", value: linked.projectTargetDate ? formatDashboardDate(linked.projectTargetDate) : "None" },
+        { label: "Next event", value: linked.nextEventDate ? `${formatDashboardDate(linked.nextEventDate)}${linked.nextEventTitle ? ` · ${linked.nextEventTitle}` : ""}` : "None" },
+      ],
+    });
+  });
+
+  data.events.forEach((event) => {
+    if (!event.date || event.date < todayKey) return;
+    const linked = getEventLinkedSummary(event);
+    items.push({
+      tableKey: "events",
+      recordId: event.id,
+      kind: "Event",
+      title: event.title,
+      date: event.date,
+      dateLabel: formatDashboardDate(event.start || event.date, Boolean(event.start)),
+      timingLabel: formatAttentionTiming(event.date),
+      tone: "tone-3",
+      status: event.type,
+      details: [
+        { label: "Project", value: event.project || "Unassigned" },
+        { label: "Task", value: event.task || "Unassigned" },
+        { label: "Task due", value: linked.taskDueDate ? formatDashboardDate(linked.taskDueDate) : "None" },
+        { label: "Project target", value: linked.projectTargetDate ? formatDashboardDate(linked.projectTargetDate) : "None" },
+        { label: "Task owner", value: linked.taskOwner || "Unassigned" },
+      ],
+    });
+  });
+
+  return items.sort((left, right) => String(left.date).localeCompare(String(right.date)));
+}
+
+function renderDashboardAttention() {
+  const items = getDashboardAttentionItems();
+  const todayLabel = formatDashboardDate(getTodayKey());
+  const sections = [
+    { key: "events", title: "Events" },
+    { key: "tasks", title: "Tasks" },
+    { key: "projects", title: "Projects" },
+  ];
+  return `
+    <section class="panel dashboard-attention-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Upcoming</h2>
+          <p>Projects, tasks, and events with the dates and linked context that need review.</p>
+        </div>
+        <div class="attention-panel-meta">
+          <div class="attention-today">${escapeHtml(todayLabel)}</div>
+          <div class="attention-count">${items.length} items</div>
+        </div>
+      </div>
+      <div id="attention-list" class="attention-sections">
+        ${sections.map((section) => {
+          const sectionItems = items.filter((item) => item.tableKey === section.key);
+          return `
+            <section class="attention-group">
+              <div class="attention-group-head">
+                <h3>${escapeHtml(section.title)}</h3>
+                <span>${sectionItems.length}</span>
+              </div>
+              <div class="attention-list">
+                ${sectionItems.length ? sectionItems.map((item) => `
+                  <button class="attention-card ${item.tone}" type="button" data-attention-table="${escapeHtml(item.tableKey)}" data-attention-record="${escapeHtml(item.recordId)}">
+                    <div class="attention-card-head">
+                      <div class="attention-kind">${escapeHtml(item.kind)}</div>
+                      <div class="attention-date-block">
+                        <div class="attention-date">${escapeHtml(item.dateLabel)}</div>
+                        <div class="attention-date-hint">${escapeHtml(item.timingLabel)}</div>
+                      </div>
+                    </div>
+                    <div class="attention-card-title">${escapeHtml(item.title)}</div>
+                    <div class="attention-card-status-row">
+                      <span class="attention-status">${escapeHtml(item.status)}</span>
+                    </div>
+                    <div class="attention-card-meta">
+                      ${item.details.map((detail) => `
+                        <div class="attention-detail">
+                          <span class="attention-detail-label">${escapeHtml(detail.label)}</span>
+                          <strong>${escapeHtml(detail.value)}</strong>
+                        </div>
+                      `).join("")}
+                    </div>
+                  </button>
+                `).join("") : `<div class="attention-empty">No upcoming ${escapeHtml(section.title.toLowerCase())}.</div>`}
+              </div>
+            </section>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function bindDashboardAttentionEvents() {
+  el.attentionList?.querySelectorAll("[data-attention-table]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const { attentionTable, attentionRecord } = button.dataset;
+      if (!attentionTable || !attentionRecord) return;
+      openRecordDetail(attentionTable, attentionRecord);
+    });
+  });
+}
+
 function getTableIcon(key) {
   const icons = {
     dashboard: `
@@ -1439,7 +1666,7 @@ function renderHeroPanel() {
   if (detail && detail.table.key === state.activeNav) {
     el.heroPanel.innerHTML = renderRecordDetail(detail.table, detail.record);
     el.heroPanel.querySelectorAll("[data-detail-action]").forEach((button) => {
-      button.addEventListener("click", () => {
+      button.addEventListener("click", async () => {
         const action = button.dataset.detailAction;
         if (action === "back") {
           state.detailTableKey = null;
@@ -1450,9 +1677,12 @@ function renderHeroPanel() {
         }
         if (action === "edit") openForm(detail.table.key, detail.record.id);
         if (action === "delete") {
-          deleteRecord(detail.table.key, detail.record.id);
-          state.detailTableKey = null;
-          state.detailRecordId = null;
+          const deleted = await deleteRecord(detail.table.key, detail.record.id);
+          if (deleted) {
+            state.detailTableKey = null;
+            state.detailRecordId = null;
+            renderHeroPanel();
+          }
         }
         if (action === "tree") {
           state.detailTreeOpen = !state.detailTreeOpen;
@@ -1477,10 +1707,13 @@ function renderHeroPanel() {
           <div class="hero-kicker">create</div>
         </div>
         <div id="board" class="board" aria-label="Create tables"></div>
+        ${renderDashboardAttention()}
       </div>
     `;
     el.board = document.getElementById("board");
     renderBoard();
+    el.attentionList = document.getElementById("attention-list");
+    bindDashboardAttentionEvents();
     return;
   }
 
@@ -1800,7 +2033,7 @@ function openForm(key, recordId = null) {
   el.form.innerHTML = table.fields.map((field) => renderField(field, record, key)).join("");
   el.saveButton.textContent = record ? "Save changes" : "Create";
   el.modal.classList.add("open");
-  document.body.classList.add("modal-open");
+  syncBodyModalState();
   bindOwnershipRepeater(key);
 }
 
@@ -1815,7 +2048,47 @@ function openAdminUserForm(userId = null) {
   el.form.innerHTML = renderAdminUserForm(user);
   el.saveButton.textContent = user ? "Save user" : "Create user";
   el.modal.classList.add("open");
-  document.body.classList.add("modal-open");
+  syncBodyModalState();
+}
+
+function syncBodyModalState() {
+  if (el.modal?.classList.contains("open") || el.confirmModal?.classList.contains("open")) {
+    document.body.classList.add("modal-open");
+  } else {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+function openDeleteConfirm(message, confirmLabel = "Delete") {
+  if (confirmResolve) {
+    confirmResolve(false);
+    confirmResolve = null;
+  }
+
+  el.confirmTitle.textContent = "Delete item?";
+  el.confirmMessage.textContent = message;
+  el.confirmDeleteButton.textContent = confirmLabel;
+  el.confirmModal.classList.add("open");
+  syncBodyModalState();
+  el.confirmCancelButton.focus();
+
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+  });
+}
+
+function closeDeleteConfirm(result = false) {
+  if (!confirmResolve) {
+    el.confirmModal.classList.remove("open");
+    syncBodyModalState();
+    return;
+  }
+
+  const resolve = confirmResolve;
+  confirmResolve = null;
+  el.confirmModal.classList.remove("open");
+  syncBodyModalState();
+  resolve(result);
 }
 
 function bindOwnershipRepeater(tableKey) {
@@ -1864,7 +2137,7 @@ function bindOwnershipRepeater(tableKey) {
 
 function closeForm() {
   el.modal.classList.remove("open");
-  document.body.classList.remove("modal-open");
+  syncBodyModalState();
   state.modalMode = "create";
   state.modalEntity = "table";
   state.editingRecordId = null;
@@ -1971,23 +2244,27 @@ function saveAdminUser() {
   renderAll();
 }
 
-function deleteAdminUser(userId) {
+async function deleteAdminUser(userId) {
   const user = userAccounts.find((item) => item.id === userId);
-  if (!user) return;
-  if (!window.confirm(`Delete ${user.name}?`)) return;
+  if (!user) return false;
+  const approved = await openDeleteConfirm(`Delete ${user.name}?`);
+  if (!approved) return false;
   const index = userAccounts.findIndex((item) => item.id === userId);
   if (index >= 0) userAccounts.splice(index, 1);
   renderAll();
+  return true;
 }
 
-function deleteRecord(tableKey, recordId) {
+async function deleteRecord(tableKey, recordId) {
   const table = tables.find((item) => item.key === tableKey);
-  if (!table) return;
+  if (!table) return false;
   const row = data[tableKey].find((item) => item.id === recordId);
   const label = row?.name || row?.title || row?.reference || table.singular || table.title;
-  if (!window.confirm(`Delete ${label}?`)) return;
+  const approved = await openDeleteConfirm(`Delete ${label}?`);
+  if (!approved) return false;
   data[tableKey] = data[tableKey].filter((item) => item.id !== recordId);
   renderAll();
+  return true;
 }
 
 function bindEvents() {
@@ -2015,7 +2292,13 @@ function bindEvents() {
     if (event.target === el.modal) closeForm();
   });
 
+  el.confirmModal.addEventListener("click", (event) => {
+    if (event.target === el.confirmModal) closeDeleteConfirm(false);
+  });
+
   el.closeButton.addEventListener("click", closeForm);
+  el.confirmCancelButton.addEventListener("click", () => closeDeleteConfirm(false));
+  el.confirmDeleteButton.addEventListener("click", () => closeDeleteConfirm(true));
   el.formElement.addEventListener("submit", (event) => {
     event.preventDefault();
     if (state.modalEntity === "user") saveAdminUser();
@@ -2023,7 +2306,12 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeForm();
+    if (event.key !== "Escape") return;
+    if (el.confirmModal.classList.contains("open")) {
+      closeDeleteConfirm(false);
+      return;
+    }
+    closeForm();
   });
 }
 
@@ -2049,6 +2337,11 @@ function init() {
   el.form = document.getElementById("form");
   el.closeButton = document.getElementById("close-button");
   el.saveButton = document.getElementById("save-button");
+  el.confirmModal = document.getElementById("confirm-modal");
+  el.confirmTitle = document.getElementById("confirm-title");
+  el.confirmMessage = document.getElementById("confirm-message");
+  el.confirmCancelButton = document.getElementById("confirm-cancel");
+  el.confirmDeleteButton = document.getElementById("confirm-delete");
 
   bindEvents();
   renderAll();
