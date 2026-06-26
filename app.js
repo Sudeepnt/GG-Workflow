@@ -1474,6 +1474,18 @@ function renderEventTypeBadge(type, variant = "records") {
   return renderBadge(type, variant, "event");
 }
 
+function renderDocumentStatusBadge(status, variant = "records") {
+  return renderBadge(status, variant, "document-status");
+}
+
+function renderDirectionBadge(direction, variant = "records") {
+  return renderBadge(direction, variant, "direction");
+}
+
+function renderAssetStatusBadge(status, variant = "records") {
+  return renderBadge(status, variant, "asset-status");
+}
+
 function formatCell(tableKey, column, row) {
   const value = row[column];
   if (value == null || value === "") return "—";
@@ -1486,6 +1498,15 @@ function renderCellMarkup(tableKey, column, row) {
   const value = formatCell(tableKey, column, row);
   if ((tableKey === "tasks" || tableKey === "projects") && column === "status" && value !== "—") {
     return renderTaskStatusBadge(value, "records");
+  }
+  if (tableKey === "documents" && column === "status" && value !== "—") {
+    return renderDocumentStatusBadge(value, "records");
+  }
+  if (tableKey === "transactions" && column === "direction" && value !== "—") {
+    return renderDirectionBadge(value, "records");
+  }
+  if (tableKey === "assets" && column === "status" && value !== "—") {
+    return renderAssetStatusBadge(value, "records");
   }
   if (tableKey === "events" && column === "type" && value !== "—") {
     return renderEventTypeBadge(value, "records");
@@ -1858,35 +1879,43 @@ function renderDashboard() {
 }
 
 function renderAdminWorkspace() {
+  const allTableKeys = tables.map((table) => table.key);
   return `
     <div class="admin-workspace">
       <div class="admin-workspace-head">
         <button class="new-record-button" type="button" id="add-user-button">+ Add user</button>
       </div>
       <div class="admin-user-list">
-        ${userAccounts.map((user) => `
-          <article class="admin-user-card" data-user-id="${escapeHtml(user.id)}">
-            <div class="admin-user-main">
-              <div class="admin-user-title-row">
-                <strong>${escapeHtml(user.name)}</strong>
-                <span class="admin-user-role">${escapeHtml(user.role)}</span>
+        ${userAccounts.map((user) => {
+          const hasFullAccess = allTableKeys.every((tableKey) => user.table_access.includes(tableKey));
+          const accessMarkup = hasFullAccess
+            ? `<span class="admin-access-chip admin-access-chip-full">Full access</span>`
+            : user.table_access.map((tableKey) => `<span class="admin-access-chip">${escapeHtml(getTableByKey(tableKey)?.title ?? tableKey)}</span>`).join("");
+
+          return `
+            <article class="admin-user-card" data-user-id="${escapeHtml(user.id)}">
+              <div class="admin-user-main">
+                <div class="admin-user-title-row">
+                  <strong>${escapeHtml(user.name)}</strong>
+                  <span class="admin-user-role">${escapeHtml(user.role)}</span>
+                </div>
+                <div class="admin-user-meta">
+                  <span>${escapeHtml(user.email)}</span>
+                  <span>${escapeHtml(user.status)}</span>
+                  <span>${escapeHtml(user.venture_scope || "All ventures")}</span>
+                </div>
+                <div class="admin-user-password">Password: ${escapeHtml(user.password)}</div>
+                <div class="admin-user-access">
+                  ${accessMarkup}
+                </div>
               </div>
-              <div class="admin-user-meta">
-                <span>${escapeHtml(user.email)}</span>
-                <span>${escapeHtml(user.status)}</span>
-                <span>${escapeHtml(user.venture_scope || "All ventures")}</span>
+              <div class="admin-user-actions">
+                <button class="record-action-button" type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}">Edit</button>
+                <button class="record-action-button" type="button" data-user-action="delete" data-user-id="${escapeHtml(user.id)}">Delete</button>
               </div>
-              <div class="admin-user-password">Password: ${escapeHtml(user.password)}</div>
-              <div class="admin-user-access">
-                ${user.table_access.map((tableKey) => `<span class="admin-access-chip">${escapeHtml(getTableByKey(tableKey)?.title ?? tableKey)}</span>`).join("")}
-              </div>
-            </div>
-            <div class="admin-user-actions">
-              <button class="record-action-button" type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}">Edit</button>
-              <button class="record-action-button" type="button" data-user-action="delete" data-user-id="${escapeHtml(user.id)}">Delete</button>
-            </div>
-          </article>
-        `).join("")}
+            </article>
+          `;
+        }).join("")}
       </div>
     </div>
   `;

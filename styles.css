@@ -604,7 +604,10 @@ input[type="search"] {
 .attention-status-badge,
 .records-status-badge,
 .attention-event-badge,
-.records-event-badge {
+.records-event-badge,
+.records-document-status-badge,
+.records-direction-badge,
+.records-asset-status-badge {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -619,7 +622,10 @@ input[type="search"] {
 }
 
 .records-status-badge,
-.records-event-badge {
+.records-event-badge,
+.records-document-status-badge,
+.records-direction-badge,
+.records-asset-status-badge {
   padding: 4px 9px;
 }
 
@@ -702,6 +708,72 @@ input[type="search"] {
   color: #6b7280;
   border-color: rgba(107, 114, 128, 0.22);
   background: rgba(243, 244, 246, 0.92);
+}
+
+.records-document-status-draft {
+  color: #6b7280;
+  border-color: rgba(107, 114, 128, 0.22);
+  background: rgba(243, 244, 246, 0.92);
+}
+
+.records-document-status-final {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(219, 234, 254, 0.92);
+}
+
+.records-document-status-signed {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.2);
+  background: rgba(220, 252, 231, 0.92);
+}
+
+.records-document-status-superseded {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(254, 243, 199, 0.92);
+}
+
+.records-direction-receivable {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.2);
+  background: rgba(220, 252, 231, 0.92);
+}
+
+.records-direction-payable {
+  color: #ea580c;
+  border-color: rgba(234, 88, 12, 0.22);
+  background: rgba(255, 237, 213, 0.92);
+}
+
+.records-asset-status-under-acquisition {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(219, 234, 254, 0.92);
+}
+
+.records-asset-status-owned {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.2);
+  background: rgba(220, 252, 231, 0.92);
+}
+
+.records-asset-status-under-development {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(254, 243, 199, 0.92);
+}
+
+.records-asset-status-operational {
+  color: #0d9488;
+  border-color: rgba(13, 148, 136, 0.22);
+  background: rgba(204, 251, 241, 0.92);
+}
+
+.records-asset-status-disposed {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
+  background: rgba(254, 226, 226, 0.92);
 }
 
 .attention-card-meta {
@@ -1605,6 +1677,12 @@ input[type="search"] {
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 12px;
+}
+
+.admin-access-chip-full {
+  color: #1f7a35;
+  border-color: rgba(31, 122, 53, 0.24);
+  background: rgba(225, 246, 231, 0.9);
 }
 
 .admin-user-actions {
