@@ -442,7 +442,7 @@ input[type="search"] {
 }
 
 .dashboard-attention-panel {
-  padding: 20px;
+  padding: 20px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -514,7 +514,7 @@ input[type="search"] {
 .attention-card {
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
+  background: #ffffff;
   color: var(--text);
   padding: 16px;
   text-align: left;
@@ -528,18 +528,6 @@ input[type="search"] {
   transform: translateY(-1px);
   border-color: #0b0b0b;
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.06);
-}
-
-.attention-card.tone-1 {
-  background: linear-gradient(180deg, #ffffff 0%, #f6f7ff 100%);
-}
-
-.attention-card.tone-2 {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbf6 100%);
-}
-
-.attention-card.tone-3 {
-  background: linear-gradient(180deg, #ffffff 0%, #fff9f3 100%);
 }
 
 .attention-card-head {
@@ -591,6 +579,121 @@ input[type="search"] {
   padding: 5px 10px;
   font-size: 12px;
   background: rgba(255, 255, 255, 0.86);
+}
+
+.attention-status-active {
+  color: #1f7a35;
+  border-color: rgba(31, 122, 53, 0.24);
+  background: rgba(225, 246, 231, 0.9);
+}
+
+.attention-status-blocked {
+  color: #b42318;
+  border-color: rgba(180, 35, 24, 0.2);
+  background: rgba(254, 228, 226, 0.92);
+}
+
+.attention-status-badge,
+.records-status-badge,
+.attention-event-badge,
+.records-event-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.attention-status-badge {
+  padding: 5px 10px;
+}
+
+.records-status-badge,
+.records-event-badge {
+  padding: 4px 9px;
+}
+
+.attention-event-badge {
+  padding: 5px 10px;
+}
+
+.attention-status-backlog,
+.records-status-backlog {
+  color: #9ca3af;
+  border-color: rgba(156, 163, 175, 0.26);
+  background: rgba(243, 244, 246, 0.92);
+}
+
+.attention-status-to-do,
+.records-status-to-do {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(219, 234, 254, 0.92);
+}
+
+.attention-status-in-progress,
+.records-status-in-progress {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(254, 243, 199, 0.92);
+}
+
+.attention-status-in-review,
+.records-status-in-review {
+  color: #7c3aed;
+  border-color: rgba(124, 58, 237, 0.22);
+  background: rgba(237, 233, 254, 0.92);
+}
+
+.attention-status-blocked,
+.records-status-blocked {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
+  background: rgba(254, 226, 226, 0.92);
+}
+
+.attention-status-done,
+.records-status-done {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.2);
+  background: rgba(220, 252, 231, 0.92);
+}
+
+.attention-event-meeting,
+.records-event-meeting {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(219, 234, 254, 0.92);
+}
+
+.attention-event-fieldvisit,
+.records-event-fieldvisit {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.2);
+  background: rgba(220, 252, 231, 0.92);
+}
+
+.attention-event-call,
+.records-event-call {
+  color: #0891b2;
+  border-color: rgba(8, 145, 178, 0.22);
+  background: rgba(207, 250, 254, 0.92);
+}
+
+.attention-event-inspection,
+.records-event-inspection {
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(254, 243, 199, 0.92);
+}
+
+.attention-event-other,
+.records-event-other {
+  color: #6b7280;
+  border-color: rgba(107, 114, 128, 0.22);
+  background: rgba(243, 244, 246, 0.92);
 }
 
 .attention-card-meta {

@@ -304,6 +304,7 @@ const state = {
   detailTableKey: null,
   detailRecordId: null,
   detailTreeOpen: false,
+  detailHistory: [],
   recordFilters: {},
 };
 
@@ -1092,6 +1093,7 @@ function renderSidebarNav() {
       state.detailTableKey = null;
       state.detailRecordId = null;
       state.detailTreeOpen = false;
+      clearDetailHistory();
       if (el.modal?.classList.contains("open")) closeForm();
       renderSidebarNav();
       if (sidebarKind === "table") {
@@ -1122,15 +1124,16 @@ function renderBoard() {
     </article>
   `).join("");
 
-  el.board.querySelectorAll("[data-open-list]").forEach((card) => {
-    card.addEventListener("click", () => {
-      state.activeNav = card.dataset.openList;
-      state.activeTable = card.dataset.openList;
-      state.search = "";
-      renderSidebarNav();
-      renderHeroPanel();
+    el.board.querySelectorAll("[data-open-list]").forEach((card) => {
+      card.addEventListener("click", () => {
+        state.activeNav = card.dataset.openList;
+        state.activeTable = card.dataset.openList;
+        state.search = "";
+        clearDetailHistory();
+        renderSidebarNav();
+        renderHeroPanel();
+      });
     });
-  });
 
   el.board.querySelectorAll("[data-open-form]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -1335,7 +1338,11 @@ function renderDashboardAttention() {
                     </div>
                     <div class="attention-card-title">${escapeHtml(item.title)}</div>
                     <div class="attention-card-status-row">
-                      <span class="attention-status">${escapeHtml(item.status)}</span>
+                      ${item.tableKey === "tasks"
+                        ? renderTaskStatusBadge(item.status, "attention")
+                        : item.tableKey === "events"
+                          ? renderEventTypeBadge(item.status, "attention")
+                        : `<span class="attention-status${getStatusClassName(item.status) ? ` attention-status-${getStatusClassName(item.status)}` : ""}">${escapeHtml(item.status)}</span>`}
                     </div>
                     <div class="attention-card-meta">
                       ${item.details.map((detail) => `
@@ -1448,12 +1455,42 @@ function titleCaseKey(key) {
   return key.replaceAll("_", " ");
 }
 
+function getStatusClassName(status) {
+  const normalized = String(status || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return normalized || "";
+}
+
+function renderBadge(value, variant = "records", prefix = "status") {
+  const badgeClass = getStatusClassName(value);
+  if (!badgeClass) return escapeHtml(String(value || "—"));
+  return `<span class="${variant}-${prefix}-badge ${variant}-${prefix}-${badgeClass}">${escapeHtml(String(value))}</span>`;
+}
+
+function renderTaskStatusBadge(status, variant = "records") {
+  return renderBadge(status, variant, "status");
+}
+
+function renderEventTypeBadge(type, variant = "records") {
+  return renderBadge(type, variant, "event");
+}
+
 function formatCell(tableKey, column, row) {
   const value = row[column];
   if (value == null || value === "") return "—";
   if (Array.isArray(value)) return formatList(value);
   if (tableKey === "people" && column === "type") return formatList(value);
   return String(value);
+}
+
+function renderCellMarkup(tableKey, column, row) {
+  const value = formatCell(tableKey, column, row);
+  if (tableKey === "tasks" && column === "status" && value !== "—") {
+    return renderTaskStatusBadge(value, "records");
+  }
+  if (tableKey === "events" && column === "type" && value !== "—") {
+    return renderEventTypeBadge(value, "records");
+  }
+  return escapeHtml(value);
 }
 
 function renderSerialNumber(value) {
@@ -1464,7 +1501,7 @@ function renderRecordsBody(table, rows) {
   return rows.map((row, index) => `
     <tr data-open-detail="${escapeHtml(table.key)}" data-record-id="${escapeHtml(row.id)}">
       <td class="records-serial-cell">${renderSerialNumber(index + 1)}</td>
-      ${table.listColumns.map((column) => `<td>${escapeHtml(formatCell(table.key, column, row))}</td>`).join("")}
+      ${table.listColumns.map((column) => `<td>${renderCellMarkup(table.key, column, row)}</td>`).join("")}
       <td class="records-actions-cell">
         <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(row.id)}">Edit</button>
         <button class="record-action-button" type="button" data-record-action="delete" data-record-id="${escapeHtml(row.id)}">Delete</button>
@@ -1633,10 +1670,49 @@ function bindRecordRowActions(table) {
   });
 }
 
-function openRecordDetail(tableKey, recordId) {
+function snapshotCurrentView() {
+  return {
+    activeNav: state.activeNav,
+    activeTable: state.activeTable,
+    detailTableKey: state.detailTableKey,
+    detailRecordId: state.detailRecordId,
+    detailTreeOpen: state.detailTreeOpen,
+  };
+}
+
+function restoreView(view = null) {
+  const targetView = view ?? {
+    activeNav: "dashboard",
+    activeTable: state.activeTable,
+    detailTableKey: null,
+    detailRecordId: null,
+    detailTreeOpen: false,
+  };
+
+  state.activeNav = targetView.activeNav;
+  state.activeTable = targetView.activeTable;
+  state.detailTableKey = targetView.detailTableKey;
+  state.detailRecordId = targetView.detailRecordId;
+  state.detailTreeOpen = targetView.detailTreeOpen;
+  renderSidebarNav();
+  renderHeroPanel();
+}
+
+function goBackFromDetail() {
+  const previousView = state.detailHistory.pop() ?? null;
+  restoreView(previousView);
+}
+
+function clearDetailHistory() {
+  state.detailHistory = [];
+}
+
+function openRecordDetail(tableKey, recordId, options = {}) {
+  if (!options.skipHistory) {
+    state.detailHistory.push(snapshotCurrentView());
+  }
   state.activeNav = tableKey;
   state.activeTable = tableKey;
-  state.search = "";
   state.detailTableKey = tableKey;
   state.detailRecordId = recordId;
   state.detailTreeOpen = false;
@@ -1669,19 +1745,14 @@ function renderHeroPanel() {
       button.addEventListener("click", async () => {
         const action = button.dataset.detailAction;
         if (action === "back") {
-          state.detailTableKey = null;
-          state.detailRecordId = null;
-          state.detailTreeOpen = false;
-          renderHeroPanel();
+          goBackFromDetail();
           return;
         }
         if (action === "edit") openForm(detail.table.key, detail.record.id);
         if (action === "delete") {
           const deleted = await deleteRecord(detail.table.key, detail.record.id);
           if (deleted) {
-            state.detailTableKey = null;
-            state.detailRecordId = null;
-            renderHeroPanel();
+            goBackFromDetail();
           }
         }
         if (action === "tree") {
