@@ -549,9 +549,11 @@ input[type="search"] {
 }
 
 .attention-panel-meta {
-  display: grid;
-  justify-items: end;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .attention-today,
@@ -562,6 +564,7 @@ input[type="search"] {
   background: #ffffff;
   font-size: 12px;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .attention-list {
@@ -2281,7 +2284,7 @@ input[type="search"] {
   }
 
   .attention-panel-meta {
-    justify-items: start;
+    justify-content: flex-start;
   }
 }
 
