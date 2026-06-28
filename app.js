@@ -25,13 +25,13 @@ const tables = [
     listColumns: ["name", "type", "venture", "access_level", "status"],
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
-      { name: "type", label: "Type", type: "select", options: ["Employee", "Founder", "Partner", "Client", "Investor", "Contractor", "Vendor", "Consultant"], required: true },
       { name: "email", label: "Email", type: "email" },
       { name: "phone", label: "Phone", type: "tel" },
       { name: "venture", label: "Venture", type: "text" },
-      { name: "role_title", label: "Role title", type: "text" },
+      { name: "type", label: "Type", type: "select", options: ["Founder", "Investor", "Partner", "Client", "Vendor", "Consultant", "Contractor", "Employee"], required: true },
+      { name: "role_title", label: "Role title", type: "select", options: ["Managing Director", "Project Manager", "Site Engineer", "Architect", "Client SPOC", "Finance Head", "Vendor Coordinator", "Legal Consultant"] },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"], value: "Active" },
       { name: "access_level", label: "Access level", type: "select", options: ["Founder", "Partner", "Employee", "Client", "Contractor"] },
-      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
     ],
   },
   {
@@ -62,6 +62,7 @@ const tables = [
     listColumns: ["title", "status", "owner", "priority", "due_date"],
     fields: [
       { name: "title", label: "Title", type: "text", required: true },
+      { name: "venture", label: "Venture", type: "text", required: true },
       { name: "project", label: "Project", type: "text", required: true },
       { name: "parent_task", label: "Parent task", type: "text" },
       { name: "status", label: "Status", type: "select", options: ["Backlog", "To-Do", "In-Progress", "In-Review", "Blocked", "Done"] },
@@ -80,10 +81,13 @@ const tables = [
     title: "Documents",
     singular: "Document",
     summary: "Notes, files, and agreements",
-    listColumns: ["title", "type", "status", "version", "date"],
+    listColumns: ["title", "venture", "project", "type", "status", "date"],
     fields: [
       { name: "title", label: "Title", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
+      { name: "venture", label: "Venture", type: "select", required: true },
+      { name: "project", label: "Project", type: "select" },
+      { name: "task", label: "Task", type: "select" },
       { name: "type", label: "Type", type: "select", options: ["Note", "Report", "Agreement", "Drawing", "Photo", "Model", "Proposal", "Research", "Comms"] },
       { name: "body", label: "Body", type: "textarea" },
       { name: "file_ref", label: "File ref", type: "text" },
@@ -103,6 +107,9 @@ const tables = [
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
+      { name: "venture", label: "Venture", type: "select", required: true },
+      { name: "project", label: "Project", type: "select" },
+      { name: "task", label: "Task", type: "select" },
       { name: "type", label: "Type", type: "select", options: ["Building", "Land", "Unit", "Theatre", "Warehouse", "Mixed"] },
       { name: "address", label: "Address", type: "textarea" },
       { name: "lat", label: "lat", type: "number", step: "any" },
@@ -122,11 +129,13 @@ const tables = [
     fields: [
       { name: "title", label: "Title", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
+      { name: "venture", label: "Venture", type: "select", required: true },
+      { name: "project", label: "Project", type: "select" },
+      { name: "task", label: "Task", type: "select" },
       { name: "type", label: "Type", type: "select", options: ["Meeting", "FieldVisit", "Call", "Inspection", "Other"] },
       { name: "start", label: "Start", type: "datetime-local" },
       { name: "end", label: "End", type: "datetime-local" },
       { name: "participants", label: "Participants", type: "text", placeholder: "Comma separated people" },
-      { name: "project", label: "Project", type: "text" },
       { name: "location", label: "Location", type: "text" },
       { name: "summary", label: "Summary", type: "textarea" },
       { name: "calendar_ref", label: "Calendar ref", type: "text" },
@@ -140,11 +149,13 @@ const tables = [
     listColumns: ["reference", "direction", "status", "amount", "due_date"],
     fields: [
       { name: "reference", label: "Reference", type: "text", required: true },
+      { name: "venture", label: "Venture", type: "select", required: true },
+      { name: "project", label: "Project", type: "select" },
+      { name: "task", label: "Task", type: "select" },
       { name: "direction", label: "Direction", type: "select", options: ["Receivable", "Payable"] },
       { name: "amount", label: "Amount", type: "text", inputmode: "numeric", data_format: "transaction-amount" },
       { name: "currency", label: "Currency", type: "select", value: "INR", options: ["INR", "USD", "EUR", "GBP", "AED", "SAR", "SGD"] },
       { name: "status", label: "Status", type: "select", options: ["Draft", "Raised", "Partly-Paid", "Paid", "Overdue", "Written-Off"] },
-      { name: "venture", label: "Venture", type: "text" },
       { name: "counterparty", label: "Counterparty", type: "text" },
       { name: "project_asset", label: "Project / asset", type: "text" },
       { name: "due_date", label: "Due date", type: "date" },
@@ -153,60 +164,768 @@ const tables = [
   },
 ];
 
+const SUPABASE_URL = "https://enozxcriirsytgrjcxbt.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_tULBf6UJrmdpNRdeb5SQmw_VOAoUhpr";
+const REMOTE_TABLE_KEYS = new Set(tables.map((table) => table.key));
+const supabaseClientFactory = globalThis.supabase?.createClient ?? null;
+const supabaseClient = supabaseClientFactory
+  ? supabaseClientFactory(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+  : null;
+
 const data = {
   ventures: [
-    { id: "ven_1", name: "ATIT", date: "2026-06-02", type: "Self", status: "Active", verticals: ["Capital", "Operations"], entity_form: "PvtLtd", primary_contact: "Dev Malik", reg_no: "U70100KA2020PTC441210", tags: ["core", "hq"] },
-    { id: "ven_2", name: "Cedar Ridge SPV", date: "2026-06-05", type: "SPV", status: "Active", verticals: ["Real Estate"], entity_form: "LLP", primary_contact: "Ishita Rao", reg_no: "AAT-8821", tags: ["fitout"] },
-    { id: "ven_3", name: "Meridian Foods Client", date: "2026-06-08", type: "Client", status: "Active", verticals: ["Leasing", "Logistics"], entity_form: "PvtLtd", primary_contact: "Kavya Menon", reg_no: "U55101MH2018PTC210991", tags: ["retail"] },
-    { id: "ven_4", name: "Bluepeak Works", date: "2026-06-12", type: "Vendor", status: "Prospect", verticals: ["Operations"], entity_form: "Proprietorship", primary_contact: "Farhan Ali", reg_no: "GST29BPW7211Q1Z2", tags: ["field"] },
+    {
+      id: "ven_1",
+      name: "v1",
+      type: "Self",
+      status: "Active",
+      verticals: ["core"],
+      date: "2026-06-28",
+      entity_form: "PvtLtd",
+    },
+    {
+      id: "ven_2",
+      name: "v2",
+      type: "SPV",
+      status: "Active",
+      verticals: ["asset"],
+      date: "2026-06-28",
+      entity_form: "LLP",
+    },
+    {
+      id: "ven_3",
+      name: "ATit",
+      type: "Self",
+      status: "Active",
+      verticals: ["core"],
+      date: "2026-06-28",
+      entity_form: "PvtLtd",
+    },
   ],
   people: [
-    { id: "peo_1", name: "Dev Malik", type: ["Founder"], email: "dev@atit.com", phone: "+91-90000-11001", venture: "ATIT", role_title: "Founder", access_level: "Founder", status: "Active" },
-    { id: "peo_2", name: "Ishita Rao", type: ["Employee"], email: "ishita@cedarridge.com", phone: "+91-90000-11002", venture: "Cedar Ridge SPV", role_title: "Site Lead", access_level: "Employee", status: "Active" },
-    { id: "peo_3", name: "Kavya Menon", type: ["Partner"], email: "kavya@meridian.com", phone: "+91-90000-11003", venture: "Meridian Foods Client", role_title: "Expansion Partner", access_level: "Partner", status: "Active" },
-    { id: "peo_4", name: "Farhan Ali", type: ["Contractor"], email: "farhan@bluepeak.com", phone: "+91-90000-11004", venture: "Bluepeak Works", role_title: "Mobilisation Lead", access_level: "Contractor", status: "Active" },
-    { id: "peo_5", name: "Meera Sethi", type: ["Employee"], email: "meera@atit.com", phone: "+91-90000-11005", venture: "ATIT", role_title: "Operations Manager", access_level: "Employee", status: "Active" },
-    { id: "peo_6", name: "Nikhil Bansal", type: ["Client"], email: "nikhil@meridian.com", phone: "+91-90000-11006", venture: "Meridian Foods Client", role_title: "Portfolio Head", access_level: "Client", status: "Active" },
+    {
+      id: "ppl_1",
+      name: "v1_p1",
+      type: "Founder",
+      email: "v1_p1@atit.com",
+      phone: "9000000001",
+      venture: "v1",
+      role_title: "Managing Director",
+      access_level: "Founder",
+      status: "Active",
+    },
+    {
+      id: "ppl_2",
+      name: "v1_p2",
+      type: "Partner",
+      email: "v1_p2@atit.com",
+      phone: "9000000002",
+      venture: "v1",
+      role_title: "Project Manager",
+      access_level: "Partner",
+      status: "Active",
+    },
+    {
+      id: "ppl_3",
+      name: "v2_p1",
+      type: "Partner",
+      email: "v2_p1@atit.com",
+      phone: "9000000003",
+      venture: "v2",
+      role_title: "Finance Head",
+      access_level: "Partner",
+      status: "Active",
+    },
+    {
+      id: "ppl_4",
+      name: "v1_p3",
+      type: "Employee",
+      email: "v1_p3@atit.com",
+      phone: "9000000004",
+      venture: "v1",
+      role_title: "Site Engineer",
+      access_level: "Employee",
+      status: "Active",
+    },
+    {
+      id: "ppl_5",
+      name: "v1_p4",
+      type: "Employee",
+      email: "v1_p4@atit.com",
+      phone: "9000000005",
+      venture: "v1",
+      role_title: "Architect",
+      access_level: "Employee",
+      status: "Active",
+    },
+    {
+      id: "ppl_6",
+      name: "v2_p2",
+      type: "Contractor",
+      email: "v2_p2@atit.com",
+      phone: "9000000006",
+      venture: "v2",
+      role_title: "Vendor Coordinator",
+      access_level: "Contractor",
+      status: "Active",
+    },
+    {
+      id: "ppl_7",
+      name: "at_p1",
+      type: "Founder",
+      email: "at_p1@atit.com",
+      phone: "9000000007",
+      venture: "ATit",
+      role_title: "Managing Director",
+      access_level: "Founder",
+      status: "Active",
+    },
+    {
+      id: "ppl_8",
+      name: "at_p2",
+      type: "Partner",
+      email: "at_p2@atit.com",
+      phone: "9000000008",
+      venture: "ATit",
+      role_title: "Project Manager",
+      access_level: "Partner",
+      status: "Active",
+    },
+    {
+      id: "ppl_9",
+      name: "at_p3",
+      type: "Employee",
+      email: "at_p3@atit.com",
+      phone: "9000000009",
+      venture: "ATit",
+      role_title: "Architect",
+      access_level: "Employee",
+      status: "Active",
+    },
   ],
   projects: [
-    { id: "prj_1", name: "Cedar Ridge Fitout", venture: "Cedar Ridge SPV", vertical: "Real Estate", type: "Development", stage: "Execution", status: "Active", lead: "Ishita Rao", target_date: "2026-07-19", client_shareable: true },
-    { id: "prj_2", name: "Meridian Rollout", venture: "Meridian Foods Client", vertical: "Logistics", type: "Internal", stage: "Scoping", status: "Active", lead: "Dev Malik", target_date: "2026-07-23", client_shareable: false },
-    { id: "prj_3", name: "ATIT Control Desk", venture: "ATIT", vertical: "Operations", type: "Internal", stage: "Delivery", status: "Blocked", lead: "Meera Sethi", target_date: "2026-07-31", client_shareable: false },
-    { id: "prj_4", name: "Bluepeak Mobilisation", venture: "Bluepeak Works", vertical: "Operations", type: "Internal", stage: "Execution", status: "Active", lead: "Farhan Ali", target_date: "2026-07-21", client_shareable: false },
-    { id: "prj_5", name: "Meridian Renewal Window", venture: "Meridian Foods Client", vertical: "Leasing", type: "Leasing", stage: "Execution", status: "Active", lead: "Kavya Menon", target_date: "2026-07-28", client_shareable: true },
+    {
+      id: "prj_1",
+      name: "p1",
+      venture: "v1",
+      vertical: "core",
+      type: "Development",
+      stage: "Execution",
+      status: "Active",
+      start_date: "2026-06-28",
+      target_date: "2026-07-12",
+      lead: "v1_p1",
+      client_shareable: true,
+    },
+    {
+      id: "prj_2",
+      name: "p2",
+      venture: "v1",
+      vertical: "ops",
+      type: "Marketing",
+      stage: "Scoping",
+      status: "Active",
+      start_date: "2026-06-28",
+      target_date: "2026-07-20",
+      lead: "v1_p2",
+      client_shareable: false,
+    },
+    {
+      id: "prj_3",
+      name: "p3",
+      venture: "v2",
+      vertical: "asset",
+      type: "Internal",
+      stage: "Origination",
+      status: "Blocked",
+      start_date: "2026-06-28",
+      target_date: "2026-07-31",
+      lead: "v2_p1",
+      client_shareable: false,
+    },
   ],
   tasks: [
-    { id: "tsk_1", title: "Mark handover punchlist", project: "Cedar Ridge Fitout", parent_task: null, status: "In-Progress", priority: "High", owner: "Meera Sethi", assignees: ["Ishita Rao", "Farhan Ali"], external_shared_with: "Ishita Rao", due_date: "2026-06-29", estimate: "6h", time_logged: "2h 15m" },
-    { id: "tsk_2", title: "Collect landlord approvals", project: "Cedar Ridge Fitout", parent_task: null, status: "To-Do", priority: "Critical", owner: "Dev Malik", assignees: ["Dev Malik", "Ishita Rao"], depends_on: ["Mark handover punchlist"], external_shared_with: "Ishita Rao", due_date: "2026-06-30", estimate: "4h" },
-    { id: "tsk_3", title: "Draft rollout brief", project: "Meridian Rollout", parent_task: null, status: "Blocked", priority: "Medium", owner: "Meera Sethi", assignees: ["Meera Sethi", "Nikhil Bansal"], external_shared_with: "Kavya Menon", due_date: "2026-07-01", estimate: "3h", time_logged: "1h 10m" },
-    { id: "tsk_4", title: "Open vendor checklist", project: "Bluepeak Mobilisation", parent_task: null, status: "Backlog", priority: "Low", owner: "Dev Malik", assignees: ["Farhan Ali"], external_shared_with: "Farhan Ali", due_date: "2026-07-03", estimate: "2h" },
-    { id: "tsk_5", title: "Review exit language", project: "Cedar Ridge Fitout", parent_task: "Mark handover punchlist", status: "In-Review", priority: "High", owner: "Meera Sethi", assignees: ["Ishita Rao", "Meera Sethi"], depends_on: ["Collect landlord approvals"], external_shared_with: "Ishita Rao", due_date: "2026-07-02", estimate: "2h 30m" },
-    { id: "tsk_6", title: "Confirm renewal budget", project: "Meridian Renewal Window", parent_task: null, status: "To-Do", priority: "Medium", owner: "Dev Malik", assignees: ["Dev Malik", "Kavya Menon", "Nikhil Bansal"], external_shared_with: "Nikhil Bansal", due_date: "2026-07-04", estimate: "5h" },
-    { id: "tsk_7", title: "Share outlet count", project: "Meridian Renewal Window", parent_task: "Confirm renewal budget", status: "Backlog", priority: "Low", owner: "Meera Sethi", assignees: ["Kavya Menon", "Meera Sethi"], depends_on: ["Draft rollout brief"], external_shared_with: "Kavya Menon", due_date: "2026-07-05", estimate: "1h 30m" },
+    {
+      id: "tsk_1",
+      title: "t1",
+      venture: "v1",
+      project: "p1",
+      status: "To-Do",
+      priority: "High",
+      owner: "v1_p3",
+      assignees: ["at_p1", "at_p2"],
+      due_date: "2026-07-02",
+      estimate: "2h",
+      time_logged: "0h",
+    },
+    {
+      id: "tsk_2",
+      title: "t2",
+      venture: "v1",
+      project: "p1",
+      status: "In-Progress",
+      priority: "Medium",
+      owner: "v1_p4",
+      due_date: "2026-07-04",
+      estimate: "4h",
+      time_logged: "1h",
+    },
+    {
+      id: "tsk_3",
+      title: "t3",
+      venture: "v1",
+      project: "p2",
+      status: "Blocked",
+      priority: "High",
+      owner: "v1_p3",
+      due_date: "2026-07-08",
+      estimate: "3h",
+      time_logged: "0h",
+    },
+    {
+      id: "tsk_4",
+      title: "t4",
+      venture: "v2",
+      project: "p3",
+      status: "Backlog",
+      priority: "Low",
+      owner: "v2_p2",
+      due_date: "2026-07-15",
+      estimate: "1h",
+      time_logged: "0h",
+    },
   ],
   documents: [
-    { id: "doc_1", title: "Fitout Handover Log", date: "2026-06-15", type: "Agreement", status: "Draft", version: 3, links: ["Cedar Ridge Fitout", "Cedar Ridge SPV", "Ishita Rao", "Farhan Ali"] },
-    { id: "doc_2", title: "Rollout Decision Note", date: "2026-06-19", type: "Note", status: "Final", version: 1, links: ["Meridian Rollout", "Meridian Foods Client", "Dev Malik", "Nikhil Bansal"] },
-    { id: "doc_3", title: "Control Desk Weekly Sheet", date: "2026-06-23", type: "Report", status: "Draft", version: 2, links: ["ATIT Control Desk", "ATIT", "Meera Sethi"] },
-    { id: "doc_4", title: "Bluepeak Onboarding File", date: "2026-06-24", type: "Report", status: "Draft", version: 1, links: ["Bluepeak Mobilisation", "Bluepeak Works", "Farhan Ali"] },
-    { id: "doc_5", title: "Renewal Budget Model", date: "2026-06-26", type: "Model", status: "Draft", version: 1, links: ["Meridian Renewal Window", "Meridian Foods Client", "Nikhil Bansal", "Kavya Menon"] },
+    {
+      id: "doc_1",
+      title: "d1",
+      date: "2026-06-28",
+      venture: "v1",
+      type: "Note",
+      body: "venture level",
+      version: 1,
+      status: "Draft",
+      links: ["v1"],
+      permission: "Internal",
+      tags: ["seed"],
+    },
+    {
+      id: "doc_2",
+      title: "d2",
+      date: "2026-06-28",
+      venture: "v1",
+      project: "p1",
+      type: "Agreement",
+      body: "project level",
+      version: 1,
+      status: "Final",
+      links: ["p1"],
+      permission: "Restricted",
+      tags: ["seed"],
+    },
+    {
+      id: "doc_3",
+      title: "d3",
+      date: "2026-06-28",
+      venture: "v1",
+      project: "p1",
+      task: "t1",
+      type: "Report",
+      body: "task level",
+      version: 1,
+      status: "Signed",
+      links: ["t1"],
+      permission: "Client-visible",
+      tags: ["seed"],
+    },
   ],
   events: [
-    { id: "evt_1", title: "Snag walk", date: "2026-06-25", type: "FieldVisit", start: "2026-06-25 11:00", duration: "35m", project: "Cedar Ridge Fitout", task: "Mark handover punchlist", participants: ["Ishita Rao", "Farhan Ali"] },
-    { id: "evt_2", title: "Approval call", date: "2026-06-25", type: "Call", start: "2026-06-25 16:00", duration: "25m", project: "Cedar Ridge Fitout", task: "Collect landlord approvals", participants: ["Dev Malik", "Ishita Rao"] },
-    { id: "evt_3", title: "Rollout review huddle", date: "2026-06-26", type: "Meeting", start: "2026-06-26 09:45", duration: "30m", project: "Meridian Rollout", task: "Draft rollout brief", participants: ["Meera Sethi", "Nikhil Bansal", "Dev Malik"] },
-    { id: "evt_4", title: "Vendor kickoff meet", date: "2026-06-27", type: "Meeting", start: "2026-06-27 14:30", duration: "40m", project: "Bluepeak Mobilisation", task: "Open vendor checklist", participants: ["Farhan Ali", "Meera Sethi"] },
-    { id: "evt_5", title: "Renewal number check-in", date: "2026-06-28", type: "Meeting", start: "2026-06-28 10:30", duration: "30m", project: "Meridian Renewal Window", task: "Confirm renewal budget", participants: ["Kavya Menon", "Nikhil Bansal"] },
+    {
+      id: "evt_1",
+      title: "e1",
+      date: "2026-06-28",
+      venture: "v1",
+      type: "Meeting",
+      start: "2026-06-28T09:00",
+      end: "2026-06-28T09:30",
+      participants: [],
+      location: "HQ",
+      summary: "venture level",
+      calendar_ref: "cal-v1",
+    },
+    {
+      id: "evt_2",
+      title: "e2",
+      date: "2026-06-28",
+      venture: "v1",
+      project: "p1",
+      type: "Call",
+      start: "2026-06-28T10:00",
+      end: "2026-06-28T10:30",
+      participants: [],
+      location: "site",
+      summary: "project level",
+      calendar_ref: "cal-p1",
+    },
+    {
+      id: "evt_3",
+      title: "e3",
+      date: "2026-06-28",
+      venture: "v1",
+      project: "p1",
+      task: "t1",
+      type: "Inspection",
+      start: "2026-06-28T11:00",
+      end: "2026-06-28T11:30",
+      participants: [],
+      location: "field",
+      summary: "task level",
+      calendar_ref: "cal-t1",
+    },
   ],
   assets: [
-    { id: "ast_1", name: "Cedar Ridge Block A", date: "2026-05-30", type: "Building", status: "Operational", owner_ventures: ["Cedar Ridge SPV"] },
-    { id: "ast_2", name: "Meridian Outlet 12", date: "2026-06-10", type: "Unit", status: "Under-Development", owner_ventures: ["Meridian Foods Client"] },
-    { id: "ast_3", name: "Bluepeak Yard Plot", date: "2026-06-16", type: "Land", status: "Under-Acquisition", owner_ventures: ["Bluepeak Works"] },
+    {
+      id: "ast_1",
+      name: "a1",
+      date: "2026-06-28",
+      venture: "v1",
+      type: "Land",
+      address: "venture level",
+      lat: 0,
+      lng: 0,
+      area: "1 ac",
+      unit: "lot",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Owned",
+    },
+    {
+      id: "ast_2",
+      name: "a2",
+      date: "2026-06-28",
+      venture: "v1",
+      project: "p1",
+      type: "Building",
+      address: "project level",
+      lat: 0,
+      lng: 0,
+      area: "5000 sqft",
+      unit: "b1",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Under-Development",
+    },
+    {
+      id: "ast_3",
+      name: "a3",
+      date: "2026-06-28",
+      venture: "v1",
+      project: "p1",
+      task: "t1",
+      type: "Unit",
+      address: "task level",
+      lat: 0,
+      lng: 0,
+      area: "1200 sqft",
+      unit: "u1",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Operational",
+    },
   ],
   transactions: [
-    { id: "txn_1", reference: "RCV-311", direction: "Receivable", amount: "9,80,000", currency: "INR", due_date: "2026-07-06", status: "Raised", venture: "Meridian Foods Client", documents: ["Renewal Budget Model"] },
-    { id: "txn_2", reference: "PAY-088", direction: "Payable", amount: "1,75,000", currency: "INR", due_date: "2026-07-10", status: "Draft", venture: "ATIT", documents: ["Control Desk Weekly Sheet"] },
-    { id: "txn_3", reference: "ADV-204", direction: "Payable", amount: "3,10,000", currency: "INR", due_date: "2026-07-02", status: "Raised", venture: "Cedar Ridge SPV", documents: ["Fitout Handover Log"] },
+    {
+      id: "txn_1",
+      reference: "x1",
+      venture: "v1",
+      direction: "Receivable",
+      amount: "100000",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "c1",
+      project_asset: "a1",
+      due_date: "2026-07-05",
+      documents: ["d1"],
+    },
+    {
+      id: "txn_2",
+      reference: "x2",
+      venture: "v1",
+      project: "p1",
+      direction: "Payable",
+      amount: "50000",
+      currency: "INR",
+      status: "Partly-Paid",
+      counterparty: "c2",
+      project_asset: "a2",
+      due_date: "2026-07-10",
+      documents: ["d2"],
+    },
+    {
+      id: "txn_3",
+      reference: "x3",
+      venture: "v1",
+      project: "p1",
+      task: "t1",
+      direction: "Receivable",
+      amount: "25000",
+      currency: "INR",
+      status: "Draft",
+      counterparty: "c3",
+      project_asset: "a3",
+      due_date: "2026-07-14",
+      documents: ["d3"],
+    },
+    {
+      id: "txn_4",
+      reference: "food-01",
+      venture: "v1",
+      direction: "Payable",
+      amount: "1800",
+      currency: "INR",
+      status: "Paid",
+      counterparty: "cafe",
+      project_asset: "a1",
+      due_date: "2026-06-28",
+      documents: [],
+    },
+    {
+      id: "txn_5",
+      reference: "food-02",
+      venture: "v1",
+      project: "p1",
+      direction: "Payable",
+      amount: "1200",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "canteen",
+      project_asset: "a2",
+      due_date: "2026-06-29",
+      documents: [],
+    },
+    {
+      id: "txn_6",
+      reference: "food-03",
+      venture: "v1",
+      project: "p1",
+      task: "t1",
+      direction: "Receivable",
+      amount: "950",
+      currency: "INR",
+      status: "Draft",
+      counterparty: "tea stall",
+      project_asset: "a3",
+      due_date: "2026-06-30",
+      documents: [],
+    },
+    {
+      id: "txn_7",
+      reference: "food-04",
+      venture: "v2",
+      project: "p3",
+      direction: "Payable",
+      amount: "2400",
+      currency: "INR",
+      status: "Overdue",
+      counterparty: "mess",
+      project_asset: "a1",
+      due_date: "2026-07-01",
+      documents: [],
+    },
+    {
+      id: "txn_8",
+      reference: "food-05",
+      venture: "v1",
+      project: "p2",
+      task: "t3",
+      direction: "Payable",
+      amount: "600",
+      currency: "INR",
+      status: "Partly-Paid",
+      counterparty: "water supplier",
+      project_asset: "a2",
+      due_date: "2026-07-03",
+      documents: [],
+    },
+    {
+      id: "txn_9",
+      reference: "office-01",
+      venture: "v1",
+      direction: "Payable",
+      amount: "3200",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "stationery",
+      project_asset: "a1",
+      due_date: "2026-07-04",
+      documents: [],
+    },
+    {
+      id: "txn_10",
+      reference: "office-02",
+      venture: "v2",
+      direction: "Payable",
+      amount: "8700",
+      currency: "INR",
+      status: "Draft",
+      counterparty: "printer",
+      project_asset: "a1",
+      due_date: "2026-07-06",
+      documents: [],
+    },
+    {
+      id: "txn_11",
+      reference: "food-06",
+      venture: "v1",
+      project: "p1",
+      direction: "Payable",
+      amount: "780",
+      currency: "INR",
+      status: "Paid",
+      counterparty: "cafe",
+      project_asset: "a2",
+      due_date: "2026-07-02",
+      documents: [],
+    },
+    {
+      id: "txn_12",
+      reference: "food-07",
+      venture: "v2",
+      project: "p3",
+      direction: "Payable",
+      amount: "1640",
+      currency: "INR",
+      status: "Partly-Paid",
+      counterparty: "mess",
+      project_asset: "a1",
+      due_date: "2026-07-07",
+      documents: [],
+    },
+    {
+      id: "txn_13",
+      reference: "water-01",
+      venture: "v1",
+      project: "p2",
+      direction: "Payable",
+      amount: "560",
+      currency: "INR",
+      status: "Paid",
+      counterparty: "water supplier",
+      project_asset: "a2",
+      due_date: "2026-07-05",
+      documents: [],
+    },
+    {
+      id: "txn_14",
+      reference: "water-02",
+      venture: "v1",
+      project: "p2",
+      task: "t3",
+      direction: "Payable",
+      amount: "420",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "water supplier",
+      project_asset: "a2",
+      due_date: "2026-07-08",
+      documents: [],
+    },
+    {
+      id: "txn_15",
+      reference: "rent-01",
+      venture: "v2",
+      direction: "Payable",
+      amount: "45000",
+      currency: "INR",
+      status: "Overdue",
+      counterparty: "landlord",
+      project_asset: "a1",
+      due_date: "2026-07-01",
+      documents: [],
+    },
+    {
+      id: "txn_16",
+      reference: "rent-02",
+      venture: "v1",
+      project: "p1",
+      direction: "Payable",
+      amount: "28000",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "landlord",
+      project_asset: "a2",
+      due_date: "2026-07-10",
+      documents: [],
+    },
+    {
+      id: "txn_17",
+      reference: "travel-01",
+      venture: "v1",
+      project: "p1",
+      task: "t1",
+      direction: "Payable",
+      amount: "2100",
+      currency: "INR",
+      status: "Draft",
+      counterparty: "cab",
+      project_asset: "a3",
+      due_date: "2026-07-09",
+      documents: [],
+    },
+    {
+      id: "txn_18",
+      reference: "travel-02",
+      venture: "v2",
+      project: "p3",
+      task: "t4",
+      direction: "Receivable",
+      amount: "6100",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "client travel",
+      project_asset: "a3",
+      due_date: "2026-07-12",
+      documents: [],
+    },
+    {
+      id: "txn_19",
+      reference: "fuel-01",
+      venture: "v2",
+      project: "p3",
+      direction: "Payable",
+      amount: "5400",
+      currency: "INR",
+      status: "Paid",
+      counterparty: "fuel station",
+      project_asset: "a1",
+      due_date: "2026-07-03",
+      documents: [],
+    },
+    {
+      id: "txn_20",
+      reference: "fuel-02",
+      venture: "v1",
+      project: "p2",
+      task: "t3",
+      direction: "Payable",
+      amount: "3900",
+      currency: "INR",
+      status: "Partly-Paid",
+      counterparty: "fuel station",
+      project_asset: "a2",
+      due_date: "2026-07-11",
+      documents: [],
+    },
+    {
+      id: "txn_21",
+      reference: "food-08",
+      venture: "v1",
+      direction: "Payable",
+      amount: "940",
+      currency: "INR",
+      status: "Paid",
+      counterparty: "canteen",
+      project_asset: "a1",
+      due_date: "2026-07-04",
+      documents: [],
+    },
+    {
+      id: "txn_22",
+      reference: "food-09",
+      venture: "v2",
+      project: "p3",
+      task: "t4",
+      direction: "Payable",
+      amount: "1320",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "tea stall",
+      project_asset: "a3",
+      due_date: "2026-07-06",
+      documents: [],
+    },
+    {
+      id: "txn_23",
+      reference: "misc-01",
+      venture: "v1",
+      project: "p1",
+      direction: "Receivable",
+      amount: "12500",
+      currency: "INR",
+      status: "Draft",
+      counterparty: "client a",
+      project_asset: "a2",
+      due_date: "2026-07-14",
+      documents: [],
+    },
+    {
+      id: "txn_24",
+      reference: "misc-02",
+      venture: "v1",
+      project: "p1",
+      task: "t2",
+      direction: "Payable",
+      amount: "2750",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "vendor b",
+      project_asset: "a2",
+      due_date: "2026-07-13",
+      documents: [],
+    },
+    {
+      id: "txn_25",
+      reference: "misc-03",
+      venture: "v2",
+      direction: "Receivable",
+      amount: "22000",
+      currency: "INR",
+      status: "Draft",
+      counterparty: "client b",
+      project_asset: "a1",
+      due_date: "2026-07-15",
+      documents: [],
+    },
+    {
+      id: "txn_26",
+      reference: "misc-04",
+      venture: "v2",
+      project: "p3",
+      direction: "Payable",
+      amount: "6400",
+      currency: "INR",
+      status: "Paid",
+      counterparty: "consultant",
+      project_asset: "a3",
+      due_date: "2026-07-08",
+      documents: [],
+    },
+    {
+      id: "txn_27",
+      reference: "misc-05",
+      venture: "v1",
+      project: "p2",
+      direction: "Payable",
+      amount: "5100",
+      currency: "INR",
+      status: "Overdue",
+      counterparty: "vendor c",
+      project_asset: "a2",
+      due_date: "2026-07-01",
+      documents: [],
+    },
+    {
+      id: "txn_28",
+      reference: "misc-06",
+      venture: "v1",
+      project: "p2",
+      task: "t3",
+      direction: "Receivable",
+      amount: "7300",
+      currency: "INR",
+      status: "Raised",
+      counterparty: "client c",
+      project_asset: "a3",
+      due_date: "2026-07-16",
+      documents: [],
+    },
   ],
   roles: {
     Founder: {
@@ -315,6 +1034,7 @@ const el = {};
 let confirmResolve = null;
 
 const arrayFields = new Set(["verticals", "tags"]);
+const hierarchyAttachmentTables = new Set(["tasks", "documents", "assets", "events", "transactions"]);
 
 const relationFields = {
   venture: { table: "ventures", labelField: "name" },
@@ -328,6 +1048,7 @@ const relationFields = {
   depends_on: { table: "tasks", labelField: "title", multiple: true },
   external_shared_with: { table: "people", labelField: "name" },
   owner_ventures: { table: "ventures", labelField: "name", multiple: true },
+  task: { table: "tasks", labelField: "title" },
   participants: { table: "people", labelField: "name", multiple: true },
   links: { tables: ["ventures", "people", "projects", "tasks", "documents", "assets", "events", "transactions"], multiple: true },
   counterparty: { table: "ventures", labelField: "name" },
@@ -335,11 +1056,23 @@ const relationFields = {
   documents: { table: "documents", labelField: "title", multiple: true },
 };
 
+const jsonColumnDefaults = {
+  ventures: { verticals: [], tags: [] },
+  tasks: { assignees: [], depends_on: [] },
+  documents: { links: [], tags: [] },
+  assets: { owner_ventures: [] },
+  events: { participants: [] },
+  transactions: { documents: [] },
+};
+
 const sidebarItems = [
   { key: "dashboard", label: "Dashboard", kind: "dashboard", count: null },
   ...tables.map((table) => ({ key: table.key, label: table.title, kind: "table" })),
   { key: "admin", label: "Admin", kind: "admin", count: null },
 ];
+
+const peopleTypeHierarchy = ["Founder", "Investor", "Partner", "Client", "Vendor", "Consultant", "Contractor", "Employee"];
+const peopleTypeRank = new Map(peopleTypeHierarchy.map((type, index) => [type, index]));
 
 function escapeHtml(value) {
   return String(value)
@@ -369,6 +1102,25 @@ function getRecordLabel(tableKey, row) {
   return row.name || row.title || row.reference || row.id || "";
 }
 
+function getPersonByName(name) {
+  const normalizedName = String(name ?? "").trim();
+  if (!normalizedName) return null;
+  return data.people.find((item) => String(item.name ?? "").trim() === normalizedName) ?? null;
+}
+
+function formatPersonDisplayLabel(value) {
+  if (value == null || value === "") return "";
+
+  const row = typeof value === "object" && value !== null
+    ? value
+    : getPersonByName(value);
+  const name = String((row?.name ?? value) || "").trim();
+  if (!name) return "";
+
+  const venture = String(row?.venture ?? "").trim();
+  return venture ? `${name} (${venture})` : name;
+}
+
 function getEntryLabel(entry) {
   if (entry == null) return "";
   if (typeof entry === "object") {
@@ -382,8 +1134,149 @@ function getEntryStake(entry) {
   return entry.stake ?? "";
 }
 
+function getFormFieldValue(fieldName) {
+  const field = el.formElement?.elements?.[fieldName];
+  if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+    return String(field.value ?? "").trim();
+  }
+  return "";
+}
+
+function getProjectByName(projectName) {
+  return data.projects.find((item) => item.name === projectName) ?? null;
+}
+
+function getTaskByTitle(taskTitle) {
+  return data.tasks.find((item) => item.title === taskTitle) ?? null;
+}
+
+function ensurePersonRecord(name, venture = "") {
+  const normalizedName = String(name ?? "").trim();
+  if (!normalizedName) return null;
+  const existing = data.people.find((item) => String(item.name ?? "").trim() === normalizedName) ?? null;
+  if (existing) return existing;
+
+  const record = {
+    id: `ppl_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    name: normalizedName,
+    type: "Employee",
+    email: "",
+    phone: "",
+    venture: String(venture ?? "").trim(),
+    role_title: "",
+    access_level: "Employee",
+    status: "Active",
+  };
+  data.people.unshift(record);
+  syncRecordToSupabase("people", record).catch((error) => {
+    console.error("Failed to sync person to Supabase", error);
+  });
+  return record;
+}
+
+function formatLocalDateForInput(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatLocalDateTimeForInput(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function getHierarchyContext(record = null) {
+  let venture = getFormFieldValue("venture") || String(record?.venture ?? "").trim();
+  let project = getFormFieldValue("project") || String(record?.project ?? "").trim();
+  let task = getFormFieldValue("task") || String(record?.task ?? "").trim();
+
+  const taskRow = task ? getTaskByTitle(task) : null;
+  const projectRow = project ? getProjectByName(project) : null;
+
+  if (!project && taskRow?.project) {
+    project = String(taskRow.project).trim();
+  }
+
+  const resolvedProjectRow = project ? getProjectByName(project) : projectRow;
+  if (!venture && resolvedProjectRow?.venture) {
+    venture = String(resolvedProjectRow.venture).trim();
+  }
+
+  if (!venture && taskRow?.project) {
+    const taskProject = getProjectByName(taskRow.project);
+    if (taskProject?.venture) {
+      venture = String(taskProject.venture).trim();
+    }
+  }
+
+  return { venture, project, task };
+}
+
 function getRecordAddedAt(row) {
   return row?.createdAt ? new Date(row.createdAt).getTime() : 0;
+}
+
+function mapRecordToSupabase(tableKey, record) {
+  const { createdAt, ...rest } = record;
+  const defaults = jsonColumnDefaults[tableKey] ?? {};
+  const normalized = { ...rest };
+  Object.entries(defaults).forEach(([column, fallback]) => {
+    if (normalized[column] == null || normalized[column] === "") {
+      normalized[column] = Array.isArray(fallback) ? [...fallback] : fallback;
+    }
+  });
+  return {
+    ...normalized,
+    created_at: createdAt ?? new Date().toISOString(),
+  };
+}
+
+function mapRecordFromSupabase(tableKey, row) {
+  const { created_at, ...rest } = row;
+  return {
+    ...rest,
+    createdAt: created_at ?? null,
+  };
+}
+
+async function hydrateDataFromSupabase() {
+  if (!supabaseClient) {
+    throw new Error("Supabase client unavailable on window");
+  }
+  const entries = await Promise.all(tables.map(async (table) => {
+    const { data: rows, error } = await supabaseClient
+      .from(table.key)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    return [table.key, (rows ?? []).map((row) => mapRecordFromSupabase(table.key, row))];
+  }));
+
+  entries.forEach(([tableKey, rows]) => {
+    data[tableKey] = rows;
+  });
+}
+
+async function syncRecordToSupabase(tableKey, record) {
+  if (!REMOTE_TABLE_KEYS.has(tableKey) || !supabaseClient) return;
+  const payload = mapRecordToSupabase(tableKey, record);
+  const { error } = await supabaseClient.from(tableKey).upsert(payload, { onConflict: "id" });
+  if (error) throw error;
+}
+
+async function removeRecordFromSupabase(tableKey, recordId) {
+  if (!REMOTE_TABLE_KEYS.has(tableKey) || !supabaseClient) return;
+  const { error } = await supabaseClient.from(tableKey).delete().eq("id", recordId);
+  if (error) throw error;
 }
 
 function getRecordFilterState(tableKey) {
@@ -391,6 +1284,8 @@ function getRecordFilterState(tableKey) {
     state.recordFilters[tableKey] = {
       venture: "all",
       project: "all",
+      type: "all",
+      status: "all",
       order: "newest",
     };
   }
@@ -471,6 +1366,14 @@ function getFilteredAndSortedRows(table) {
       if (![...projectValues, ...linkedProjectValues].includes(filters.project)) return false;
     }
 
+    if (table.key === "documents" && filters.type !== "all") {
+      if (String(row.type || "") !== filters.type) return false;
+    }
+
+    if (table.key === "documents" && filters.status !== "all") {
+      if (String(row.status || "") !== filters.status) return false;
+    }
+
     return true;
   });
 
@@ -491,10 +1394,29 @@ function getRelationOptions(fieldName, currentTableKey, record = null) {
   if (!relation) return [];
 
   const sourceTables = relation.tables ?? [relation.table];
+  const hierarchy = getHierarchyContext(record);
   return sortOptionsAlpha(sourceTables.flatMap((tableKey) => {
     const table = tables.find((item) => item.key === tableKey);
     const rows = data[tableKey] ?? [];
     return rows
+      .filter((row) => {
+        if (currentTableKey === "tasks" && fieldName === "project") {
+          if (!hierarchy.venture) return false;
+          return String(row.venture ?? "") === hierarchy.venture;
+        }
+
+        if (hierarchyAttachmentTables.has(currentTableKey) && fieldName === "project") {
+          if (!hierarchy.venture) return false;
+          return String(row.venture ?? "") === hierarchy.venture;
+        }
+
+        if (hierarchyAttachmentTables.has(currentTableKey) && fieldName === "task") {
+          if (!hierarchy.project) return false;
+          return String(row.project ?? "") === hierarchy.project;
+        }
+
+        return true;
+      })
       .filter((row) => !((fieldName === "parent_task" || fieldName === "depends_on") && currentTableKey === "tasks" && row.id === record?.id))
       .map((row) => {
         const value = relation.labelField ? row[relation.labelField] : getRecordLabel(tableKey, row);
@@ -522,10 +1444,10 @@ function getRowsByFieldValue(tableKey, fieldName, value) {
 }
 
 function getRecordReferenceLabel(tableKey, row) {
-  const table = getTableByKey(tableKey);
-  const primary = row.name || row.title || row.reference || row.id;
-  const subtitle = table?.title ? table.title : tableKey;
-  return `${primary} · ${subtitle}`;
+  const primary = tableKey === "people"
+    ? formatPersonDisplayLabel(row)
+    : row.name || row.title || row.reference || row.id;
+  return String(primary ?? "");
 }
 
 function getRecordConnections(tableKey, record) {
@@ -766,7 +1688,7 @@ function getRecordConnections(tableKey, record) {
         const found = data.people.find((item) => item.name === name) ?? null;
         if (!found) return null;
         return {
-          label: `${found.name} · ${suffix}`,
+          label: `${formatPersonDisplayLabel(found)} · ${suffix}`,
           tableKey: "people",
           id: found.id,
           row: found,
@@ -797,14 +1719,31 @@ function getTreeNodeKey(tableKey, record) {
 }
 
 function shouldExpandTreeItem(rootTableKey, parentTableKey, depth, childTableKey) {
-  if (rootTableKey !== "ventures") return false;
-  if (depth === 0) return childTableKey === "projects";
-  if (depth === 1 && parentTableKey === "projects") {
-    return ["tasks", "events", "documents"].includes(childTableKey);
+  if (rootTableKey === "ventures") {
+    if (depth === 0) return childTableKey === "projects";
+    if (depth === 1 && parentTableKey === "projects") {
+      return ["tasks", "events", "documents"].includes(childTableKey);
+    }
+    if (depth === 2 && parentTableKey === "tasks") {
+      return ["people", "tasks"].includes(childTableKey);
+    }
+    return false;
   }
-  if (depth === 2 && parentTableKey === "tasks") {
+
+  if (rootTableKey === "projects") {
+    if (depth === 0) {
+      return ["tasks", "events", "documents"].includes(childTableKey);
+    }
+    if (depth === 1 && parentTableKey === "tasks") {
+      return ["people", "tasks"].includes(childTableKey);
+    }
+    return false;
+  }
+
+  if (rootTableKey === "tasks" && depth === 0) {
     return ["people", "tasks"].includes(childTableKey);
   }
+
   return false;
 }
 
@@ -824,12 +1763,285 @@ function getTreeNodeToneClass(tableKey, record) {
   return "";
 }
 
+function createTreeLeafNode(tableKey, row, label = null) {
+  return {
+    id: row?.id ?? null,
+    tableKey,
+    label: label || getRecordLabel(tableKey, row),
+    iconKey: tableKey,
+    toneClass: getTreeNodeToneClass(tableKey, row),
+    isRoot: false,
+    children: [],
+  };
+}
+
+function getTaskPeopleTreeNodes(taskRow) {
+  const nodes = [
+    taskRow.owner
+      ? { name: taskRow.owner, suffix: "Owner" }
+      : null,
+    ...(Array.isArray(taskRow.assignees) ? taskRow.assignees.map((name) => ({ name, suffix: "Assignee" })) : []),
+    taskRow.external_shared_with
+      ? { name: taskRow.external_shared_with, suffix: "External" }
+      : null,
+  ]
+    .filter(Boolean)
+    .map(({ name, suffix }) => {
+      const found = data.people.find((item) => item.name === name) ?? null;
+      if (!found) return null;
+      return createTreeLeafNode("people", found, `${formatPersonDisplayLabel(found)} · ${suffix}`);
+    })
+    .filter(Boolean);
+
+  const seen = new Set();
+  return nodes.filter((node) => {
+    const key = `${node.tableKey}:${node.id}:${node.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getStructuredLeafNodes(tableKey, rows) {
+  return rows.map((row) => createTreeLeafNode(tableKey, row, getRecordReferenceLabel(tableKey, row)));
+}
+
+function pushStructuredGroup(children, label, tableKey, rows) {
+  const nodes = getStructuredLeafNodes(tableKey, rows);
+  if (!nodes.length) return;
+  children.push({
+    isGroup: true,
+    label,
+    children: nodes,
+  });
+}
+
+function buildStructuredTaskNode(taskRow, options = {}) {
+  const children = [];
+
+  if (options.includeProject && taskRow.project) {
+    const projectRow = data.projects.find((item) => item.name === taskRow.project) ?? null;
+    if (projectRow) {
+      children.push({
+        isGroup: true,
+        label: "Projects",
+        children: [createTreeLeafNode("projects", projectRow, getRecordReferenceLabel("projects", projectRow))],
+      });
+    }
+  }
+
+  const peopleNodes = getTaskPeopleTreeNodes(taskRow);
+  if (peopleNodes.length) {
+    children.push({
+      isGroup: true,
+      label: "People",
+      children: peopleNodes,
+    });
+  }
+
+  const subtaskNodes = (data.tasks ?? [])
+    .filter((item) => String(item.parent_task || "") === String(taskRow.title || ""))
+    .map((item) => buildStructuredTaskNode(item));
+
+  pushStructuredGroup(
+    children,
+    "Assets",
+    "assets",
+    (data.assets ?? []).filter((item) => item.task === taskRow.title),
+  );
+
+  pushStructuredGroup(
+    children,
+    "Events",
+    "events",
+    (data.events ?? []).filter((item) => item.task === taskRow.title),
+  );
+
+  pushStructuredGroup(
+    children,
+    "Documents",
+    "documents",
+    (data.documents ?? []).filter((item) => item.task === taskRow.title || (Array.isArray(item.links) && item.links.includes(taskRow.title))),
+  );
+
+  pushStructuredGroup(
+    children,
+    "Transactions",
+    "transactions",
+    (data.transactions ?? []).filter((item) => item.task === taskRow.title),
+  );
+
+  if (subtaskNodes.length) {
+    children.push({
+      isGroup: true,
+      label: "Tasks",
+      children: subtaskNodes,
+    });
+  }
+
+  return {
+    id: taskRow.id,
+    tableKey: "tasks",
+    label: getRecordLabel("tasks", taskRow),
+    iconKey: "tasks",
+    toneClass: "",
+    isRoot: false,
+    children,
+  };
+}
+
+function buildStructuredProjectNode(projectRow, options = {}) {
+  const children = [];
+
+  if (options.includeVenture && projectRow.venture) {
+    const ventureRow = data.ventures.find((item) => item.name === projectRow.venture) ?? null;
+    if (ventureRow) {
+      children.push({
+        isGroup: true,
+        label: "Ventures",
+        children: [createTreeLeafNode("ventures", ventureRow, getRecordReferenceLabel("ventures", ventureRow))],
+      });
+    }
+  }
+
+  const taskNodes = (data.tasks ?? [])
+    .filter((item) => item.project === projectRow.name && !item.parent_task)
+    .map((item) => buildStructuredTaskNode(item));
+
+  pushStructuredGroup(
+    children,
+    "Assets",
+    "assets",
+    (data.assets ?? []).filter((item) => item.project === projectRow.name),
+  );
+
+  pushStructuredGroup(
+    children,
+    "Events",
+    "events",
+    (data.events ?? []).filter((item) => item.project === projectRow.name),
+  );
+
+  pushStructuredGroup(
+    children,
+    "Documents",
+    "documents",
+    (data.documents ?? []).filter((item) => item.project === projectRow.name || (Array.isArray(item.links) && item.links.includes(projectRow.name))),
+  );
+
+  pushStructuredGroup(
+    children,
+    "Transactions",
+    "transactions",
+    (data.transactions ?? []).filter((item) => item.project === projectRow.name),
+  );
+
+  if (taskNodes.length) {
+    children.push({
+      isGroup: true,
+      label: "Tasks",
+      children: taskNodes,
+    });
+  }
+
+  return {
+    id: projectRow.id,
+    tableKey: "projects",
+    label: getRecordLabel("projects", projectRow),
+    iconKey: "projects",
+    toneClass: getTreeNodeToneClass("projects", projectRow),
+    isRoot: false,
+    children,
+  };
+}
+
+function buildStructuredTree(tableKey, record) {
+  if (tableKey === "ventures") {
+    const children = [];
+    const primaryContact = record.primary_contact
+      ? data.people.find((item) => item.name === record.primary_contact) ?? null
+      : null;
+    if (primaryContact) {
+      children.push({
+        isGroup: true,
+        label: "People",
+        children: [createTreeLeafNode("people", primaryContact, getRecordReferenceLabel("people", primaryContact))],
+      });
+    }
+
+    const projectNodes = (data.projects ?? [])
+      .filter((item) => item.venture === record.name)
+      .map((item) => buildStructuredProjectNode(item));
+
+    pushStructuredGroup(
+      children,
+      "Assets",
+      "assets",
+      (data.assets ?? []).filter((item) => item.venture === record.name),
+    );
+
+    pushStructuredGroup(
+      children,
+      "Events",
+      "events",
+      (data.events ?? []).filter((item) => item.venture === record.name),
+    );
+
+    pushStructuredGroup(
+      children,
+      "Documents",
+      "documents",
+      (data.documents ?? []).filter((item) => item.venture === record.name || (Array.isArray(item.links) && item.links.includes(record.name))),
+    );
+
+    pushStructuredGroup(
+      children,
+      "Transactions",
+      "transactions",
+      (data.transactions ?? []).filter((item) => item.venture === record.name),
+    );
+
+    if (projectNodes.length) {
+      children.push({
+        isGroup: true,
+        label: "Projects",
+        children: projectNodes,
+      });
+    }
+
+    return {
+      id: record.id,
+      tableKey,
+      label: getRecordLabel(tableKey, record),
+      iconKey: tableKey,
+      toneClass: getTreeNodeToneClass(tableKey, record),
+      isRoot: true,
+      children,
+    };
+  }
+
+  if (tableKey === "projects") {
+    const root = buildStructuredProjectNode(record, { includeVenture: true });
+    return { ...root, isRoot: true };
+  }
+
+  if (tableKey === "tasks") {
+    const root = buildStructuredTaskNode(record, { includeProject: true });
+    return { ...root, isRoot: true };
+  }
+
+  return null;
+}
+
 function buildConnectionTree(tableKey, record, depth = 0, visited = new Set(), rootTableKey = tableKey) {
+  const structuredRoot = depth === 0 ? buildStructuredTree(tableKey, record) : null;
+  if (structuredRoot) return structuredRoot;
+
   const nodeKey = getTreeNodeKey(tableKey, record);
   const nextVisited = new Set(visited);
   nextVisited.add(nodeKey);
 
-  if (depth >= 3) {
+  if (depth >= 4) {
     return null;
   }
 
@@ -908,7 +2120,7 @@ function renderConnectionTreeNode(node) {
 }
 
 function renderDetailTree(tableKey, record) {
-  const root = buildConnectionTree(tableKey, record);
+  const root = buildStructuredTree(tableKey, record) ?? buildConnectionTree(tableKey, record);
 
   if (!root || !root.children.length) {
     return `<div class="detail-empty">No connected records found.</div>`;
@@ -926,7 +2138,7 @@ function renderDetailTree(tableKey, record) {
 }
 
 function getExpandedLinkedGroups(tableKey, record) {
-  const root = buildConnectionTree(tableKey, record);
+  const root = buildStructuredTree(tableKey, record) ?? buildConnectionTree(tableKey, record);
   if (!root) return [];
 
   const grouped = new Map();
@@ -984,6 +2196,44 @@ function renderRecordDetail(table, record) {
   const connections = table.key === "ventures"
     ? getExpandedLinkedGroups(table.key, record)
     : getRecordConnections(table.key, record);
+  const primaryVenture = String(record?.venture ?? record?.name ?? "").trim();
+
+  const renderLinkedRows = (items, offset = 1) => items.map((item, index) => `
+    <button class="linked-record-row" type="button" data-tree-open="${escapeHtml(item.tableKey)}" data-tree-record="${escapeHtml(item.id ?? "")}">
+      <span class="linked-record-serial">${renderSerialNumber(index + offset)}</span>
+      <span class="linked-record-label">${escapeHtml(item.label)}</span>
+    </button>
+  `).join("");
+
+  const renderPeopleGroups = (items) => {
+    const grouped = new Map();
+    items.forEach((item) => {
+      const ventureName = String(item?.row?.venture ?? "Unassigned").trim() || "Unassigned";
+      if (!grouped.has(ventureName)) grouped.set(ventureName, []);
+      grouped.get(ventureName).push(item);
+    });
+
+    const sortedGroupNames = Array.from(grouped.keys()).sort((a, b) => {
+      if (a === primaryVenture) return -1;
+      if (b === primaryVenture) return 1;
+      return a.localeCompare(b);
+    });
+
+    return sortedGroupNames.map((ventureName) => {
+      const groupItems = grouped.get(ventureName) ?? [];
+      return `
+        <div class="detail-linked-subgroup">
+          <div class="detail-linked-subgroup-head">
+            <span class="detail-linked-subgroup-title">${escapeHtml(ventureName)}</span>
+            <span class="detail-linked-subgroup-count">(${groupItems.length})</span>
+          </div>
+          <div class="detail-linked-list detail-linked-list-subgroup">
+            ${renderLinkedRows(groupItems)}
+          </div>
+        </div>
+      `;
+    }).join("");
+  };
 
   return `
     <div class="detail-view">
@@ -1019,16 +2269,16 @@ function renderRecordDetail(table, record) {
           <div class="detail-linked-groups">
             ${connections.map((connection) => `
               <div class="detail-linked-group">
-                <div class="detail-linked-group-head">${escapeHtml(connection.label)} (${connection.items.length})</div>
-                <div class="detail-linked-list">
-                  ${connection.items.map((item, index) => `
-                    <button class="linked-record-row" type="button" data-tree-open="${escapeHtml(item.tableKey)}" data-tree-record="${escapeHtml(item.id ?? "")}">
-                      <span class="linked-record-serial">${renderSerialNumber(index + 1)}</span>
-                      <span class="linked-record-label">${escapeHtml(item.label)}</span>
-                      <span class="linked-record-arrow">›</span>
-                    </button>
-                  `).join("")}
+                <div class="detail-linked-group-head">
+                  <span class="detail-linked-group-icon" aria-hidden="true">${getTableIcon(connection.key || "")}</span>
+                  <span class="detail-linked-group-title">${escapeHtml(connection.label)}</span>
+                  <span class="detail-linked-group-count">(${connection.items.length})</span>
                 </div>
+                ${connection.key === "people" ? renderPeopleGroups(connection.items) : `
+                  <div class="detail-linked-list">
+                    ${renderLinkedRows(connection.items)}
+                  </div>
+                `}
               </div>
             `).join("")}
           </div>
@@ -1299,7 +2549,7 @@ function getDashboardAttentionItems() {
       status: project.status,
       details: [
         { label: "Venture", value: project.venture || "Unassigned" },
-        { label: "Lead", value: project.lead || "Unassigned" },
+        { label: "Lead", value: project.lead ? formatPersonDisplayLabel(project.lead) : "Unassigned" },
         { label: "Open tasks", value: String(linked.taskCount) },
         { label: "Next task due", value: linked.nextTaskDate ? formatDashboardDate(linked.nextTaskDate) : "None" },
         { label: "Next event", value: linked.nextEventDate ? formatDashboardDate(linked.nextEventDate) : "None" },
@@ -1322,7 +2572,7 @@ function getDashboardAttentionItems() {
       status: task.status,
       details: [
         { label: "Project", value: task.project || "Unassigned" },
-        { label: "Owner", value: task.owner || "Unassigned" },
+        { label: "Owner", value: task.owner ? formatPersonDisplayLabel(task.owner) : "Unassigned" },
         { label: "Priority", value: task.priority || "Unset" },
         { label: "Project target", value: linked.projectTargetDate ? formatDashboardDate(linked.projectTargetDate) : "None" },
         { label: "Next event", value: linked.nextEventDate ? `${formatDashboardDate(linked.nextEventDate)}${linked.nextEventTitle ? ` · ${linked.nextEventTitle}` : ""}` : "None" },
@@ -1348,7 +2598,7 @@ function getDashboardAttentionItems() {
         { label: "Task", value: event.task || "Unassigned" },
         { label: "Task due", value: linked.taskDueDate ? formatDashboardDate(linked.taskDueDate) : "None" },
         { label: "Project target", value: linked.projectTargetDate ? formatDashboardDate(linked.projectTargetDate) : "None" },
-        { label: "Task owner", value: linked.taskOwner || "Unassigned" },
+        { label: "Task owner", value: linked.taskOwner ? formatPersonDisplayLabel(linked.taskOwner) : "Unassigned" },
       ],
     });
   });
@@ -1550,6 +2800,28 @@ function formatTransactionAmount(value, currency = "INR") {
   return currencyLabel ? `${currencyLabel} ${formatted}` : formatted;
 }
 
+function getTransactionNumericValue(value) {
+  const digits = String(value ?? "").replace(/[^\d.-]/g, "");
+  if (!digits) return 0;
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatTransactionTotalByCurrency(rows) {
+  const totals = new Map();
+
+  rows.forEach((row) => {
+    const currency = getCurrencyDisplay(row.currency || "INR") || "INR";
+    const amount = getTransactionNumericValue(row.amount);
+    if (!amount) return;
+    totals.set(currency, (totals.get(currency) ?? 0) + amount);
+  });
+
+  return Array.from(totals.entries())
+    .map(([currency, total]) => `${currency} ${formatIndianNumber(total)}`)
+    .join(" · ");
+}
+
 function getStatusClassName(status) {
   const normalized = String(status || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
   return normalized || "";
@@ -1588,6 +2860,14 @@ function renderVentureStatusBadge(status, variant = "records") {
 function formatCell(tableKey, column, row) {
   const value = row[column];
   if (value == null || value === "") return "—";
+  const relation = getRelationConfig(column);
+  const isPeopleRelation = Boolean(relation) && (
+    relation.table === "people" || (Array.isArray(relation.tables) && relation.tables.includes("people"))
+  );
+  if (isPeopleRelation) {
+    if (Array.isArray(value)) return value.map((item) => formatPersonDisplayLabel(item)).filter(Boolean).join(", ");
+    return formatPersonDisplayLabel(value) || "—";
+  }
   if (Array.isArray(value)) return formatList(value);
   if (tableKey === "people" && column === "type") return formatList(value);
   if (tableKey === "transactions" && column === "amount") return formatTransactionAmount(value, row.currency);
@@ -1596,6 +2876,9 @@ function formatCell(tableKey, column, row) {
 
 function renderCellMarkup(tableKey, column, row) {
   const value = formatCell(tableKey, column, row);
+  if (tableKey === "documents" && (column === "venture" || column === "project") && value === "—") {
+    return "-";
+  }
   if ((tableKey === "tasks" || tableKey === "projects") && column === "status" && value !== "—") {
     return renderTaskStatusBadge(value, "records");
   }
@@ -1621,12 +2904,29 @@ function renderSerialNumber(value) {
   return `<span class="record-serial">${escapeHtml(String(value))}</span>`;
 }
 
+function getDocumentVisitUrl(record) {
+  const raw = String(record?.file_ref ?? "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw).toString();
+  } catch {
+    try {
+      return new URL(`https://${raw}`).toString();
+    } catch {
+      return "";
+    }
+  }
+}
+
 function renderRecordsBody(table, rows) {
   return rows.map((row, index) => `
     <tr data-open-detail="${escapeHtml(table.key)}" data-record-id="${escapeHtml(row.id)}">
       <td class="records-serial-cell">${renderSerialNumber(index + 1)}</td>
       ${table.listColumns.map((column) => `<td>${renderCellMarkup(table.key, column, row)}</td>`).join("")}
       <td class="records-actions-cell">
+        ${table.key === "documents"
+          ? `<button class="record-action-button" type="button" data-record-action="visit" data-record-id="${escapeHtml(row.id)}"${getDocumentVisitUrl(row) ? "" : " disabled"}>Visit</button>`
+          : ""}
         <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(row.id)}">Edit</button>
         <button class="record-action-button" type="button" data-record-action="delete" data-record-id="${escapeHtml(row.id)}">Delete</button>
       </td>
@@ -1654,6 +2954,22 @@ function getDetailIconTone(tableKey, record) {
   return getVentureTone(record?.name || "");
 }
 
+function sortPeopleByHierarchy(rows) {
+  return rows.slice().sort((left, right) => {
+    const leftRank = peopleTypeRank.get(String(left?.type ?? "").trim()) ?? Number.MAX_SAFE_INTEGER;
+    const rightRank = peopleTypeRank.get(String(right?.type ?? "").trim()) ?? Number.MAX_SAFE_INTEGER;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+
+    return String(left?.name ?? "").localeCompare(String(right?.name ?? ""));
+  });
+}
+
+function renderPersonStatus(status) {
+  const value = String(status || "No status");
+  const normalized = getStatusClassName(value);
+  return `<span class="person-card-status person-card-status-${normalized}">${escapeHtml(value)}</span>`;
+}
+
 function renderPeopleRecords(rows) {
   if (!rows.length) return `<div class="people-empty">No records</div>`;
 
@@ -1671,18 +2987,16 @@ function renderPeopleRecords(rows) {
         <span>${people.length}</span>
       </div>
       <div class="people-group-list">
-        ${people.map((row, index) => `
+        ${sortPeopleByHierarchy(people).map((row, index) => `
           <article class="person-card ${getVentureTone(venture)}" data-open-detail="people" data-record-id="${escapeHtml(row.id)}">
             <div class="person-card-main">
-              <div class="person-card-title-row">
+              <div class="person-card-leading">
                 ${renderSerialNumber(index + 1)}
                 <span class="person-card-avatar" aria-hidden="true">${escapeHtml(getInitials(row.name || "Unnamed"))}</span>
-                <strong>${escapeHtml(row.name || "Unnamed")}</strong>
               </div>
-              <div class="person-card-meta">
-                <span>${escapeHtml(formatCell("people", "type", row))}</span>
-                <span>${escapeHtml(row.status || "No status")}</span>
-              </div>
+              <strong class="person-card-name">${escapeHtml(row.name || "Unnamed")}</strong>
+              <span class="person-card-type">${escapeHtml(formatCell("people", "type", row))}</span>
+              ${renderPersonStatus(row.status || "No status")}
             </div>
             <div class="person-card-actions">
               <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(row.id)}">Edit</button>
@@ -1810,6 +3124,17 @@ function updateRecordsTable(table) {
   } else {
     el.recordsTableBody.innerHTML = renderRecordsBody(table, rows);
   }
+  if (el.recordsTotalFooter) {
+    if (table.key === "transactions") {
+      el.recordsTotalFooter.innerHTML = `
+        <span>Visible amount total</span>
+        <strong>${escapeHtml(formatTransactionTotalByCurrency(rows) || "INR 0")}</strong>
+      `;
+      el.recordsTotalFooter.hidden = false;
+    } else {
+      el.recordsTotalFooter.hidden = true;
+    }
+  }
   bindRecordRowActions(table);
   bindRecordOpenActions(table);
 }
@@ -1817,6 +3142,8 @@ function updateRecordsTable(table) {
 function renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptions) {
   const showVentureFilter = ventureOptions.length > 0;
   const showProjectFilter = projectOptions.length > 0;
+  const documentTypeOptions = table.key === "documents" ? getFilterOptions("documents", "type") : [];
+  const documentStatusOptions = table.key === "documents" ? getFilterOptions("documents", "status") : [];
   const searchPlaceholder = `Search ${escapeHtml(table.title.toLowerCase())}...`;
 
   return `
@@ -1843,6 +3170,20 @@ function renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptio
               <select id="records-project-filter">
                 <option value="all" ${filters.project === "all" ? "selected" : ""}>All projects</option>
                 ${projectOptions.map((option) => `<option value="${escapeHtml(option)}" ${filters.project === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+              </select>
+            </label>
+          ` : ""}
+          ${table.key === "documents" ? `
+            <label class="records-filter">
+              <select id="records-type-filter">
+                <option value="all" ${filters.type === "all" ? "selected" : ""}>All types</option>
+                ${documentTypeOptions.map((option) => `<option value="${escapeHtml(option)}" ${filters.type === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="records-filter">
+              <select id="records-status-filter">
+                <option value="all" ${filters.status === "all" ? "selected" : ""}>All statuses</option>
+                ${documentStatusOptions.map((option) => `<option value="${escapeHtml(option)}" ${filters.status === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
               </select>
             </label>
           ` : ""}
@@ -1880,10 +3221,13 @@ function renderRecordsTable(table) {
     : `<th class="records-serial-head">S. No.</th>${table.listColumns.map((column) => `<th>${escapeHtml(titleCaseKey(column))}</th>`).join("")}<th>Actions</th>`;
 
   const body = table.key === "tasks" ? renderTaskRows(rows) : renderRecordsBody(table, rows);
+  const tableWrapClass = table.key === "transactions"
+    ? "records-table-wrap records-table-wrap-fixed-total"
+    : "records-table-wrap";
 
   return `
     ${toolbar}
-    <div class="records-table-wrap">
+    <div class="${tableWrapClass}">
       <table class="records-table">
         <thead>
           <tr>${headers}</tr>
@@ -1892,6 +3236,12 @@ function renderRecordsTable(table) {
           ${body}
         </tbody>
       </table>
+      <div id="records-total-footer" class="records-total-footer" ${table.key === "transactions" ? "" : "hidden"}>
+        ${table.key === "transactions" ? `
+          <span>Visible amount total</span>
+          <strong>${escapeHtml(formatTransactionTotalByCurrency(rows) || "INR 0")}</strong>
+        ` : ""}
+      </div>
     </div>
   `;
 }
@@ -1901,6 +3251,11 @@ function bindRecordRowActions(table) {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       const { recordAction, recordId } = button.dataset;
+      if (recordAction === "visit") {
+        const record = data[table.key]?.find((item) => item.id === recordId) ?? null;
+        const visitUrl = getDocumentVisitUrl(record);
+        if (visitUrl) window.open(visitUrl, "_blank", "noopener,noreferrer");
+      }
       if (recordAction === "edit") {
         openForm(table.key, recordId);
       }
@@ -2052,6 +3407,7 @@ function renderHeroPanel() {
   el.recordsCount = document.getElementById("records-count");
   el.recordsContent = document.getElementById("records-content");
   el.recordsTableBody = document.getElementById("records-table-body");
+  el.recordsTotalFooter = document.getElementById("records-total-footer");
   el.newRecordButton = document.getElementById("new-record-button");
   el.recordsSearch.addEventListener("input", (event) => {
     state.search = event.target.value;
@@ -2059,6 +3415,8 @@ function renderHeroPanel() {
   });
   el.recordsVentureFilter = document.getElementById("records-venture-filter");
   el.recordsProjectFilter = document.getElementById("records-project-filter");
+  el.recordsTypeFilter = document.getElementById("records-type-filter");
+  el.recordsStatusFilter = document.getElementById("records-status-filter");
   el.recordsOrderFilter = document.getElementById("records-order-filter");
   if (el.recordsVentureFilter) {
     el.recordsVentureFilter.addEventListener("change", (event) => {
@@ -2069,6 +3427,18 @@ function renderHeroPanel() {
   if (el.recordsProjectFilter) {
     el.recordsProjectFilter.addEventListener("change", (event) => {
       getRecordFilterState(table.key).project = event.target.value;
+      updateRecordsTable(table);
+    });
+  }
+  if (el.recordsTypeFilter) {
+    el.recordsTypeFilter.addEventListener("change", (event) => {
+      getRecordFilterState(table.key).type = event.target.value;
+      updateRecordsTable(table);
+    });
+  }
+  if (el.recordsStatusFilter) {
+    el.recordsStatusFilter.addEventListener("change", (event) => {
+      getRecordFilterState(table.key).status = event.target.value;
       updateRecordsTable(table);
     });
   }
@@ -2169,22 +3539,64 @@ function summarizeRecord(record) {
   if (record.type) parts.push(`Type ${Array.isArray(record.type) ? record.type.join(", ") : record.type}`);
   if (record.project) parts.push(`Project ${record.project}`);
   if (record.venture) parts.push(`Venture ${record.venture}`);
+  if (record.task) parts.push(`Task ${record.task}`);
   if (record.due_date) parts.push(`Due ${record.due_date}`);
   if (record.direction) parts.push(`Direction ${record.direction}`);
   return parts.join(" · ") || "Linked record";
 }
 
 function getFieldDisplayValue(field, record) {
+  if (field.name === "venture") {
+    const hierarchy = getHierarchyContext(record);
+    if (hierarchy.venture) return String(hierarchy.venture);
+  }
+
+  if (field.name === "project") {
+    const hierarchy = getHierarchyContext(record);
+    if (hierarchy.project) return String(hierarchy.project);
+  }
+
   const rawValue = record?.[field.name];
   if (rawValue == null) return "";
+  const relation = getRelationConfig(field.name);
+  const isPeopleRelation = Boolean(relation) && (
+    relation.table === "people" || (Array.isArray(relation.tables) && relation.tables.includes("people"))
+  );
+  if (isPeopleRelation) {
+    if (Array.isArray(rawValue)) return rawValue.map((item) => formatPersonDisplayLabel(item)).filter(Boolean).join(", ");
+    return formatPersonDisplayLabel(rawValue);
+  }
   if (Array.isArray(rawValue)) return formatList(rawValue);
   if (state.activeTable === "transactions" && field.name === "amount") return formatIndianNumber(rawValue);
   return String(rawValue);
 }
 
+function sanitizeStakeInput(value, { finalize = false } = {}) {
+  let normalized = String(value ?? "")
+    .replace(/[^0-9.]/g, "")
+    .replace(/(\..*)\./g, "$1");
+
+  const parts = normalized.split(".");
+  if (parts.length > 2) {
+    normalized = `${parts[0]}.${parts.slice(1).join("")}`;
+  }
+
+  if (parts[1] != null) {
+    normalized = `${parts[0]}.${parts[1].slice(0, 2)}`;
+  }
+
+  if (!finalize) return normalized;
+  if (!normalized || normalized === ".") return "";
+
+  const numeric = Number(normalized);
+  if (Number.isNaN(numeric)) return "";
+  const clamped = Math.min(Math.max(numeric, 0), 100);
+  return String(clamped).replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+}
+
 function renderOwnershipRow(entry = {}, index = 0, options = []) {
   const label = entry.venture ?? entry.name ?? entry.label ?? "";
-  const stake = entry.stake ?? "";
+  const stake = sanitizeStakeInput(entry.stake ?? "", { finalize: true });
   const sortedOptions = sortOptionsAlpha(options);
   return `
     <div class="ownership-row" data-ownership-row>
@@ -2197,7 +3609,7 @@ function renderOwnershipRow(entry = {}, index = 0, options = []) {
       </label>
       <label class="ownership-field stake-field">
         <span>Stake %</span>
-        <input name="owner_ventures_stake_${index}" type="number" min="0" step="0.01" value="${escapeHtml(stake)}" placeholder="0" />
+        <input name="owner_ventures_stake_${index}" class="ownership-stake-input" type="text" inputmode="decimal" value="${escapeHtml(stake)}" placeholder="0.00" />
       </label>
       <button class="ownership-remove" type="button" data-ownership-remove aria-label="Remove venture">×</button>
     </div>
@@ -2226,7 +3638,14 @@ function renderOwnershipRepeater(record = null, currentTableKey = "") {
 
 function renderField(field, record = null, currentTableKey = "") {
   const required = field.required ? "required" : "";
-  const fieldValue = record ? getFieldDisplayValue(field, record) : field.value ?? "";
+  const defaultValue = field.value ?? (
+    field.type === "date"
+      ? formatLocalDateForInput()
+      : field.type === "datetime-local"
+        ? formatLocalDateTimeForInput()
+        : ""
+  );
+  const fieldValue = record ? getFieldDisplayValue(field, record) : defaultValue;
   const valueAttr = fieldValue ? `value="${escapeHtml(fieldValue)}"` : "";
   const placeholder = field.placeholder ? `placeholder="${escapeHtml(field.placeholder)}"` : "";
   const step = field.step ? `step="${escapeHtml(field.step)}"` : "";
@@ -2241,9 +3660,28 @@ function renderField(field, record = null, currentTableKey = "") {
     : fieldValue
       ? [String(fieldValue)]
       : [];
+  const isPeopleRelation = Boolean(relation) && (
+    relation.table === "people" || (Array.isArray(relation.tables) && relation.tables.includes("people"))
+  );
 
   if (currentTableKey === "assets" && field.name === "owner_ventures") {
     return renderOwnershipRepeater(record, currentTableKey);
+  }
+
+  if (isPeopleRelation) {
+    const inputId = `people-${currentTableKey}-${field.name}`;
+    const datalistId = `${inputId}-list`;
+    const placeholderText = relation?.multiple ? "Comma separated people" : "Type or pick a person";
+    return `
+      <label class="form-field">
+        <span>${label}</span>
+        <input name="${escapeHtml(field.name)}" type="text" ${required} value="${escapeHtml(Array.isArray(record?.[field.name]) ? record[field.name].join(", ") : fieldValue)}" placeholder="${escapeHtml(placeholderText)}" list="${escapeHtml(datalistId)}" />
+        <datalist id="${escapeHtml(datalistId)}">
+          ${sortStringsAlpha(data.people.map((person) => person.name)).map((name) => `<option value="${escapeHtml(name)}"></option>`).join("")}
+        </datalist>
+        <small class="form-hint">Type a name. If it does not exist yet, it will be created automatically when you save.</small>
+      </label>
+    `;
   }
 
   if (relation) {
@@ -2273,11 +3711,25 @@ function renderField(field, record = null, currentTableKey = "") {
       `;
     }
 
+    const hierarchy = getHierarchyContext(record);
+    const isProjectSelect = field.name === "project" && (currentTableKey === "tasks" || hierarchyAttachmentTables.has(currentTableKey));
+    const isTaskSelect = field.name === "task" && hierarchyAttachmentTables.has(currentTableKey);
+    const selectPlaceholder = isTaskSelect
+      ? (hierarchy.project ? "Select task" : "Select project first")
+      : isProjectSelect
+        ? (hierarchy.venture ? "Select project" : "Select venture first")
+        : "Select";
+    const disabledAttr = isTaskSelect
+      ? (hierarchy.project ? "" : "disabled")
+      : isProjectSelect
+        ? (hierarchy.venture ? "" : "disabled")
+        : "";
+
     return `
       <label class="form-field">
         <span>${label}</span>
-        <select name="${escapeHtml(field.name)}" ${required}>
-          <option value="">Select</option>
+        <select name="${escapeHtml(field.name)}" ${required} ${disabledAttr}>
+          <option value="">${escapeHtml(selectPlaceholder)}</option>
           ${sortedRelationOptions.map((option) => `<option value="${escapeHtml(option.value)}" ${selectedValues.includes(option.value) ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
         </select>
       </label>
@@ -2294,13 +3746,13 @@ function renderField(field, record = null, currentTableKey = "") {
   }
 
   if (field.type === "select") {
-    const sortedFieldOptions = sortStringsAlpha(field.options ?? []);
+    const fieldOptions = field.options ?? [];
     return `
       <label class="form-field">
         <span>${label}</span>
         <select name="${escapeHtml(field.name)}" ${required}>
           <option value="">Select</option>
-          ${sortedFieldOptions.map((option) => `<option value="${escapeHtml(option)}" ${fieldValue === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+          ${fieldOptions.map((option) => `<option value="${escapeHtml(option)}" ${fieldValue === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
         </select>
       </label>
     `;
@@ -2392,6 +3844,7 @@ function openForm(key, recordId = null) {
   syncBodyModalState();
   bindFormattedInputs();
   bindOwnershipRepeater(key);
+  bindHierarchyFilters(record);
 }
 
 function openAdminUserForm(userId = null) {
@@ -2457,11 +3910,25 @@ function bindOwnershipRepeater(tableKey) {
   const ventureOptions = getRelationOptions("owner_ventures", tableKey);
   let rowIndex = list.querySelectorAll("[data-ownership-row]").length;
 
+  const bindStakeInput = (row) => {
+    const input = row.querySelector(".ownership-stake-input");
+    if (!(input instanceof HTMLInputElement)) return;
+
+    input.addEventListener("input", () => {
+      input.value = sanitizeStakeInput(input.value);
+    });
+
+    input.addEventListener("blur", () => {
+      input.value = sanitizeStakeInput(input.value, { finalize: true });
+    });
+  };
+
   const buildRow = (entry = {}) => {
     const wrapper = document.createElement("div");
     wrapper.innerHTML = renderOwnershipRow(entry, rowIndex, ventureOptions).trim();
     rowIndex += 1;
     const row = wrapper.firstElementChild;
+    bindStakeInput(row);
     row.querySelector("[data-ownership-remove]")?.addEventListener("click", () => {
       if (list.querySelectorAll("[data-ownership-row]").length <= 1) {
         row.querySelectorAll("select,input").forEach((input) => {
@@ -2480,6 +3947,7 @@ function bindOwnershipRepeater(tableKey) {
   });
 
   list.querySelectorAll("[data-ownership-row]").forEach((row) => {
+    bindStakeInput(row);
     row.querySelector("[data-ownership-remove]")?.addEventListener("click", () => {
       if (list.querySelectorAll("[data-ownership-row]").length <= 1) {
         row.querySelectorAll("select,input").forEach((input) => {
@@ -2493,6 +3961,69 @@ function bindOwnershipRepeater(tableKey) {
   });
 }
 
+function bindHierarchyFilters(record = null) {
+  const ventureSelect = el.formElement?.elements?.venture;
+  const projectSelect = el.formElement?.elements?.project;
+  const taskSelect = el.formElement?.elements?.task;
+
+  if (!(ventureSelect instanceof HTMLSelectElement)) return;
+  if (!(projectSelect instanceof HTMLSelectElement)) return;
+
+  const syncTaskOptions = () => {
+    if (!(taskSelect instanceof HTMLSelectElement)) return;
+
+    const selectedTask = taskSelect.value.trim();
+    const selectedProject = projectSelect.value.trim();
+    const options = getRelationOptions("task", state.activeTable, record);
+
+    taskSelect.innerHTML = [
+      `<option value="">${escapeHtml(selectedProject ? "Select task" : "Select project first")}</option>`,
+      ...options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`),
+    ].join("");
+
+    taskSelect.disabled = !selectedProject;
+
+    if (selectedTask && options.some((option) => option.value === selectedTask)) {
+      taskSelect.value = selectedTask;
+      return;
+    }
+
+    if (record?.task && options.some((option) => option.value === record.task)) {
+      taskSelect.value = record.task;
+      return;
+    }
+
+    taskSelect.value = "";
+  };
+
+  const syncProjectOptions = () => {
+    const selectedProject = projectSelect.value.trim();
+    const selectedVenture = ventureSelect.value.trim();
+    const options = getRelationOptions("project", state.activeTable, record);
+
+    projectSelect.innerHTML = [
+      `<option value="">${escapeHtml(selectedVenture ? "Select project" : "Select venture first")}</option>`,
+      ...options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`),
+    ].join("");
+
+    projectSelect.disabled = !selectedVenture;
+
+    if (selectedProject && options.some((option) => option.value === selectedProject)) {
+      projectSelect.value = selectedProject;
+    } else if (record?.project && options.some((option) => option.value === record.project)) {
+      projectSelect.value = record.project;
+    } else {
+      projectSelect.value = "";
+    }
+
+    syncTaskOptions();
+  };
+
+  ventureSelect.addEventListener("change", syncProjectOptions);
+  projectSelect.addEventListener("change", syncTaskOptions);
+  syncProjectOptions();
+}
+
 function bindFormattedInputs() {
   el.form.querySelectorAll('input[data-format="transaction-amount"]').forEach((input) => {
     const applyFormatting = () => {
@@ -2502,6 +4033,49 @@ function bindFormattedInputs() {
     applyFormatting();
     input.addEventListener("input", applyFormatting);
   });
+}
+
+function normalizeHierarchicalRecord(tableKey, record) {
+  if (tableKey === "tasks") {
+    const projectRow = String(record.project ?? "").trim() ? getProjectByName(String(record.project).trim()) : null;
+    if (projectRow?.venture) {
+      record.venture = String(projectRow.venture).trim();
+    }
+    return record;
+  }
+
+  if (!hierarchyAttachmentTables.has(tableKey)) return record;
+
+  const selectedTask = String(record.task ?? "").trim();
+  const selectedProject = String(record.project ?? "").trim();
+  let selectedVenture = String(record.venture ?? "").trim();
+
+  const taskRow = selectedTask ? getTaskByTitle(selectedTask) : null;
+  const projectRow = selectedProject ? getProjectByName(selectedProject) : null;
+
+  if (taskRow?.project) {
+    record.project = String(taskRow.project).trim();
+  } else if (selectedProject) {
+    record.project = selectedProject;
+  } else {
+    record.project = "";
+  }
+
+  const resolvedProjectRow = record.project ? getProjectByName(record.project) : projectRow;
+  if (resolvedProjectRow?.venture) {
+    selectedVenture = String(resolvedProjectRow.venture).trim();
+  }
+
+  if (!selectedVenture && taskRow?.project) {
+    const taskProject = getProjectByName(taskRow.project);
+    if (taskProject?.venture) {
+      selectedVenture = String(taskProject.venture).trim();
+    }
+  }
+
+  record.venture = selectedVenture;
+  record.task = selectedTask;
+  return record;
 }
 
 function closeForm() {
@@ -2516,6 +4090,7 @@ function closeForm() {
 function buildRecordFromForm(table) {
   const formData = new FormData(el.formElement);
   const record = {};
+  const hierarchy = getHierarchyContext();
 
   table.fields.forEach((field) => {
     if (field.type === "checkbox") {
@@ -2528,7 +4103,8 @@ function buildRecordFromForm(table) {
       record[field.name] = rows
         .map((row) => {
           const venture = row.querySelector(`select[name^="owner_ventures_venture_"]`)?.value?.trim() ?? "";
-          const stake = row.querySelector(`input[name^="owner_ventures_stake_"]`)?.value?.trim() ?? "";
+          const rawStake = row.querySelector(`input[name^="owner_ventures_stake_"]`)?.value?.trim() ?? "";
+          const stake = sanitizeStakeInput(rawStake, { finalize: true });
           if (!venture) return null;
           return { venture, stake };
         })
@@ -2537,6 +4113,22 @@ function buildRecordFromForm(table) {
     }
 
     const relation = getRelationConfig(field.name);
+    const isPeopleRelation = Boolean(relation) && (
+      relation.table === "people" || (Array.isArray(relation.tables) && relation.tables.includes("people"))
+    );
+
+    if (isPeopleRelation) {
+      const personNames = String(formData.get(field.name) ?? "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      personNames.forEach((name) => ensurePersonRecord(name, hierarchy.venture));
+
+      record[field.name] = relation?.multiple ? personNames : (personNames[0] ?? "");
+      return;
+    }
+
     if (relation?.multiple) {
       record[field.name] = formData.getAll(field.name).map((value) => String(value).trim()).filter(Boolean);
       return;
@@ -2566,26 +4158,38 @@ function buildRecordFromForm(table) {
     record[field.name] = rawValue;
   });
 
-  return record;
+  if (table.key === "tasks") {
+    const linkedProject = data.projects.find((item) => item.name === record.project) ?? null;
+    if (linkedProject?.venture) {
+      record.venture = linkedProject.venture;
+    }
+  }
+
+  return normalizeHierarchicalRecord(table.key, record);
 }
 
-function saveRecord() {
+async function saveRecord() {
   const table = tables.find((item) => item.key === state.activeTable);
   if (!table) return;
 
   const payload = buildRecordFromForm(table);
+  let nextRecord = null;
 
   if (state.modalMode === "edit" && state.editingRecordId) {
     const index = data[table.key].findIndex((item) => item.id === state.editingRecordId);
     if (index >= 0) {
-      data[table.key][index] = { ...data[table.key][index], ...payload };
+      nextRecord = { ...data[table.key][index], ...payload };
+      await syncRecordToSupabase(table.key, nextRecord);
+      data[table.key][index] = nextRecord;
     }
   } else {
-    data[table.key].unshift({
+    nextRecord = {
       id: `${table.key.slice(0, 3)}_${Date.now()}`,
       createdAt: new Date().toISOString(),
       ...payload,
-    });
+    };
+    await syncRecordToSupabase(table.key, nextRecord);
+    data[table.key].unshift(nextRecord);
   }
 
   closeForm();
@@ -2636,6 +4240,7 @@ async function deleteRecord(tableKey, recordId) {
   const label = row?.name || row?.title || row?.reference || table.singular || table.title;
   const approved = await openDeleteConfirm(`Delete ${label}?`);
   if (!approved) return false;
+  await removeRecordFromSupabase(tableKey, recordId);
   data[tableKey] = data[tableKey].filter((item) => item.id !== recordId);
   renderAll();
   return true;
@@ -2684,10 +4289,17 @@ function bindEvents() {
   el.closeButton.addEventListener("click", closeForm);
   el.confirmCancelButton.addEventListener("click", () => closeDeleteConfirm(false));
   el.confirmDeleteButton.addEventListener("click", () => closeDeleteConfirm(true));
-  el.formElement.addEventListener("submit", (event) => {
+  el.formElement.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (state.modalEntity === "user") saveAdminUser();
-    else saveRecord();
+    else {
+      try {
+        await saveRecord();
+      } catch (error) {
+        console.error("Failed to save record", error);
+        window.alert("Save failed. Check Supabase connection and table permissions.");
+      }
+    }
   });
 
   document.addEventListener("keydown", (event) => {
@@ -2711,7 +4323,7 @@ function renderAll() {
   renderSearch();
 }
 
-function init() {
+async function init() {
   el.layout = document.querySelector(".layout");
   el.sidebarNav = document.getElementById("sidebar-nav");
   el.sidebarFooter = document.getElementById("sidebar-footer");
@@ -2733,11 +4345,16 @@ function init() {
 
   bindEvents();
   renderAll();
+  hydrateDataFromSupabase()
+    .then(() => {
+      renderAll();
+    })
+    .catch((error) => {
+      console.error("Falling back to local seed data", error);
+    });
 }
 
-try {
-  init();
-} catch (error) {
+init().catch((error) => {
   console.error("App boot failed", error);
   document.body.dataset.bootError = error?.message ?? String(error);
-}
+});
