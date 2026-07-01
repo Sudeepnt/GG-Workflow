@@ -78,10 +78,10 @@ const tables = [
   },
   {
     key: "documents",
-    title: "Documents",
-    singular: "Document",
+    title: "Documents/Notes",
+    singular: "Document/Note",
     summary: "Notes, files, and agreements",
-    listColumns: ["title", "venture", "project", "type", "status", "date"],
+    listColumns: ["title", "venture_project", "body", "type", "status", "date"],
     fields: [
       { name: "title", label: "Title", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
@@ -96,7 +96,6 @@ const tables = [
       { name: "file_ref", label: "File ref", type: "text" },
       { name: "version", label: "Version", type: "number" },
       { name: "status", label: "Status", type: "select", options: ["Draft", "Final", "Signed", "Superseded"] },
-      { name: "links", label: "Links", type: "text", placeholder: "ventures, projects, tasks..." },
       { name: "permission", label: "Permission", type: "select", options: ["Internal", "Restricted", "Client-visible", "Contractor-visible"] },
       { name: "tags", label: "Tags", type: "text", placeholder: "Comma separated" },
     ],
@@ -395,6 +394,84 @@ const data = {
       priority: "Low",
       owner: "v2_p2",
       due_date: "2026-07-15",
+      estimate: "1h",
+      time_logged: "0h",
+    },
+    {
+      id: "tsk_5",
+      title: "t1.1",
+      venture: "v1",
+      project: "p1",
+      parent_task: "t1",
+      status: "To-Do",
+      priority: "Medium",
+      owner: "at_p1",
+      due_date: "2026-07-01",
+      estimate: "1h",
+      time_logged: "0h",
+    },
+    {
+      id: "tsk_6",
+      title: "t1.2",
+      venture: "v1",
+      project: "p1",
+      parent_task: "t1",
+      status: "Backlog",
+      priority: "Low",
+      owner: "at_p2",
+      due_date: "2026-07-02",
+      estimate: "1h",
+      time_logged: "0h",
+    },
+    {
+      id: "tsk_7",
+      title: "t2.1",
+      venture: "v1",
+      project: "p1",
+      parent_task: "t2",
+      status: "In-Progress",
+      priority: "Medium",
+      owner: "v1_p4",
+      due_date: "2026-07-03",
+      estimate: "2h",
+      time_logged: "1h",
+    },
+    {
+      id: "tsk_8",
+      title: "t2.2",
+      venture: "v1",
+      project: "p1",
+      parent_task: "t2",
+      status: "To-Do",
+      priority: "Low",
+      owner: "at_p1",
+      due_date: "2026-07-04",
+      estimate: "1h",
+      time_logged: "0h",
+    },
+    {
+      id: "tsk_9",
+      title: "t3.1",
+      venture: "v1",
+      project: "p2",
+      parent_task: "t3",
+      status: "Blocked",
+      priority: "High",
+      owner: "v1_p3",
+      due_date: "2026-07-06",
+      estimate: "2h",
+      time_logged: "0h",
+    },
+    {
+      id: "tsk_10",
+      title: "t3.2",
+      venture: "v1",
+      project: "p2",
+      parent_task: "t3",
+      status: "To-Do",
+      priority: "Medium",
+      owner: "at_p2",
+      due_date: "2026-07-07",
       estimate: "1h",
       time_logged: "0h",
     },
@@ -1084,6 +1161,17 @@ const jsonColumnDefaults = {
   transactions: { documents: [] },
 };
 
+const remoteTableColumns = {
+  ventures: ["id", "name", "type", "status", "lead", "primary_contact", "verticals", "founded", "hq", "website", "notes", "tags", "created_at"],
+  people: ["id", "name", "email", "phone", "venture", "role", "type", "status", "location", "timezone", "notes", "created_at"],
+  projects: ["id", "name", "venture", "status", "lead", "target_date", "budget", "summary", "priority", "created_at"],
+  tasks: ["id", "title", "venture", "project", "parent_task", "status", "priority", "owner", "assignees", "depends_on", "due_date", "estimate", "time_logged", "external_shared_with", "created_at"],
+  documents: ["id", "title", "date", "venture", "project", "task", "type", "body", "file_ref", "version", "status", "links", "permission", "tags", "created_at"],
+  assets: ["id", "name", "type", "status", "venture", "project", "owner_ventures", "location", "latitude", "longitude", "date", "notes", "created_at"],
+  events: ["id", "title", "type", "venture", "project", "task", "date", "start", "duration", "location", "participants", "notes", "created_at"],
+  transactions: ["id", "reference", "direction", "status", "venture", "project_asset", "counterparty", "amount", "currency", "due_date", "documents", "notes", "created_at"],
+};
+
 const sidebarItems = [
   { key: "dashboard", label: "Dashboard", kind: "dashboard", count: null },
   ...tables.map((table) => ({ key: table.key, label: table.title, kind: "table" })),
@@ -1422,15 +1510,31 @@ function mapRecordToSupabase(tableKey, record) {
   const normalized = Object.fromEntries(
     Object.entries(rest).map(([column, value]) => [column, value === "" ? null : value]),
   );
+  if (tableKey === "documents") {
+    const mergedLinks = [
+      ...(Array.isArray(normalized.links) ? normalized.links : []),
+      ...(Array.isArray(normalized.related_assets) ? normalized.related_assets : []),
+      ...(Array.isArray(normalized.related_events) ? normalized.related_events : []),
+      ...(Array.isArray(normalized.related_transactions) ? normalized.related_transactions : []),
+    ]
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean);
+    normalized.links = Array.from(new Set(mergedLinks));
+  }
   Object.entries(defaults).forEach(([column, fallback]) => {
     if (normalized[column] == null || normalized[column] === "") {
       normalized[column] = Array.isArray(fallback) ? [...fallback] : fallback;
     }
   });
-  return {
+  const payload = {
     ...normalized,
     created_at: createdAt ?? new Date().toISOString(),
   };
+  const allowedColumns = remoteTableColumns[tableKey];
+  if (!allowedColumns) return payload;
+  return Object.fromEntries(
+    Object.entries(payload).filter(([column]) => allowedColumns.includes(column)),
+  );
 }
 
 function mapRecordFromSupabase(tableKey, row) {
@@ -1816,11 +1920,32 @@ function getRecordReferenceLabel(tableKey, row) {
   return String(primary ?? "");
 }
 
+function getDocumentSummaryText(record) {
+  const body = String(record?.body ?? "").trim();
+  if (body) return body;
+  const type = String(record?.type ?? "").trim();
+  const status = String(record?.status ?? "").trim();
+  if (type && status) return `${type} · ${status}`;
+  return type || status || "";
+}
+
+function getDocumentLocationLabel(record) {
+  const venture = String(record?.venture ?? "").trim();
+  const project = String(record?.project ?? "").trim();
+  if (venture && project) return `${venture} (${project})`;
+  return venture || project || "—";
+}
+
 function getRecordConnections(tableKey, record) {
   const connections = [];
   const row = record ?? {};
   const rowLabel = getRecordLabel(tableKey, row);
-  const getConnectionLabel = (targetKey, fallback = "") => getTableByKey(targetKey)?.title ?? titleCaseKey(fallback || targetKey);
+  const getConnectionLabel = (targetKey, fallback = "") => {
+    const normalizedFallback = String(fallback ?? "").trim().toLowerCase();
+    if (targetKey === "tasks" && normalizedFallback === "parent task") return "Parent tasks";
+    if (targetKey === "tasks" && normalizedFallback === "subtasks") return "Subtasks";
+    return getTableByKey(targetKey)?.title ?? titleCaseKey(fallback || targetKey);
+  };
   const normalizeConnections = (items) => {
     const grouped = new Map();
 
@@ -2073,9 +2198,22 @@ function getRecordConnections(tableKey, record) {
           row: found,
         };
       })
-      .filter((item, index, array) => item && array.findIndex((candidate) => candidate.id === item.id) === index);
+      .filter((item, index, array) => item && array.findIndex((candidate) => candidate?.id === item.id) === index);
 
     addConnection("people", taskPeople, "people", "linked");
+    addConnection(
+      "documents",
+      (data.documents ?? [])
+        .filter((item) => String(item.task ?? "").trim() === rowLabel || (Array.isArray(item.links) && item.links.includes(rowLabel)))
+        .map((item) => ({
+        label: getRecordReferenceLabel("documents", item),
+        tableKey: "documents",
+        id: item.id,
+        row: item,
+      })),
+      "documents",
+      "linked",
+    );
 
     addConnection(
       "subtasks",
@@ -2590,7 +2728,14 @@ function getExpandedLinkedGroups(tableKey, record) {
 
 function renderRecordDetail(table, record) {
   const detailIconTone = getDetailIconTone(table.key, record);
-  const rows = table.fields.map((field) => {
+  const detailEyebrow = table.key === "tasks" && String(record?.parent_task ?? "").trim()
+    ? "Subtasks"
+    : table.title;
+  const documentBody = table.key === "documents" ? String(record?.body ?? "").trim() : "";
+  const detailFields = table.key === "documents"
+    ? table.fields.filter((field) => field.name !== "body")
+    : table.fields;
+  const rows = detailFields.map((field) => {
     const value = getFieldDisplayValue(field, record);
     const display = Array.isArray(record?.[field.name]) ? record[field.name].join(", ") : value || "—";
     return `
@@ -2606,12 +2751,18 @@ function renderRecordDetail(table, record) {
     : getRecordConnections(table.key, record);
   const primaryVenture = String(record?.venture ?? record?.name ?? "").trim();
 
-  const renderLinkedRows = (items, offset = 1) => items.map((item, index) => `
-    <button class="linked-record-row" type="button" data-tree-open="${escapeHtml(item.tableKey)}" data-tree-record="${escapeHtml(item.id ?? "")}">
-      <span class="linked-record-serial">${renderSerialNumber(index + offset)}</span>
-      <span class="linked-record-label">${escapeHtml(item.label)}</span>
-    </button>
-  `).join("");
+  const renderLinkedRows = (items, offset = 1) => items.map((item, index) => {
+    const noteText = item.tableKey === "documents" ? getDocumentSummaryText(item.row) : "";
+    return `
+      <button class="linked-record-row ${noteText ? "linked-record-row-with-note" : ""}" type="button" data-tree-open="${escapeHtml(item.tableKey)}" data-tree-record="${escapeHtml(item.id ?? "")}">
+        <span class="linked-record-serial">${renderSerialNumber(index + offset)}</span>
+        <span class="linked-record-copy">
+          <span class="linked-record-label">${escapeHtml(item.label)}</span>
+          ${noteText ? `<span class="linked-record-note">${escapeHtml(noteText)}</span>` : ""}
+        </span>
+      </button>
+    `;
+  }).join("");
 
   const renderPeopleGroups = (items) => {
     const grouped = new Map();
@@ -2655,7 +2806,7 @@ function renderRecordDetail(table, record) {
           <div class="detail-title-block">
             <span class="detail-title-icon ${escapeHtml(detailIconTone)}" aria-hidden="true">${getTableIcon(table.key)}</span>
             <div class="detail-title-copy">
-              <div class="detail-eyebrow">${escapeHtml(table.title)}</div>
+              <div class="detail-eyebrow">${escapeHtml(detailEyebrow)}</div>
               <h2>${escapeHtml(record.name || record.title || record.reference || table.singular)}</h2>
             </div>
           </div>
@@ -2669,6 +2820,14 @@ function renderRecordDetail(table, record) {
       <div class="detail-grid">
         ${rows}
       </div>
+      ${documentBody ? `
+        <section class="detail-body-block">
+          <div class="detail-linked-head">
+            <h3>Body</h3>
+          </div>
+          <p class="detail-body-copy">${escapeHtml(documentBody)}</p>
+        </section>
+      ` : ""}
       <section class="detail-linked">
         <div class="detail-linked-head">
           <h3>Linked records - auto-assembled</h3>
@@ -3664,6 +3823,9 @@ function renderVentureStatusBadge(status, variant = "records") {
 }
 
 function formatCell(tableKey, column, row) {
+  if (tableKey === "documents" && column === "venture_project") {
+    return getDocumentLocationLabel(row);
+  }
   const value = row[column];
   if (value == null || value === "") return "—";
   const relation = getRelationConfig(column);
@@ -3682,6 +3844,9 @@ function formatCell(tableKey, column, row) {
 
 function renderCellMarkup(tableKey, column, row) {
   const value = formatCell(tableKey, column, row);
+  if (tableKey === "documents" && column === "body") {
+    return `<span class="document-body-preview">${escapeHtml(value === "—" ? "" : value)}</span>`;
+  }
   if (tableKey === "documents" && (column === "venture" || column === "project") && value === "—") {
     return "-";
   }
@@ -3730,8 +3895,8 @@ function renderRecordsBody(table, rows) {
       <td class="records-serial-cell">${renderSerialNumber(index + 1)}</td>
       ${table.listColumns.map((column) => `<td>${renderCellMarkup(table.key, column, row)}</td>`).join("")}
       <td class="records-actions-cell">
-        ${table.key === "documents"
-          ? `<button class="record-action-button" type="button" data-record-action="visit" data-record-id="${escapeHtml(row.id)}"${getDocumentVisitUrl(row) ? "" : " disabled"}>Visit</button>`
+        ${table.key === "documents" && getDocumentVisitUrl(row)
+          ? `<button class="record-action-button" type="button" data-record-action="visit" data-record-id="${escapeHtml(row.id)}">Visit</button>`
           : ""}
         <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(row.id)}">Edit</button>
         <button class="record-action-button" type="button" data-record-action="delete" data-record-id="${escapeHtml(row.id)}">Delete</button>
@@ -3870,7 +4035,7 @@ function renderTaskRows(rows) {
 
   return rootRows.map((row, index) => {
     const children = childrenByParentId.get(row.id) ?? [];
-    const expanded = Boolean(state.taskExpanded[row.id]);
+    const expanded = state.taskExpanded[row.id] ?? children.length > 0;
     const parentRow = `
       <tr data-open-detail="tasks" data-record-id="${escapeHtml(row.id)}" class="task-parent-row">
         <td class="records-serial-cell">${renderSerialNumber(index + 1)}</td>
@@ -4188,6 +4353,10 @@ function renderRecordsTable(table) {
   const ventureOptions = getFilterOptions(table.key, "venture");
   const projectOptions = getFilterOptions(table.key, "project");
   const toolbar = renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptions);
+  const getColumnHeaderLabel = (column) => {
+    if (table.key === "documents" && column === "venture_project") return "venture(project)";
+    return titleCaseKey(column);
+  };
 
   if (table.key === "people") {
     return `
@@ -4209,8 +4378,7 @@ function renderRecordsTable(table) {
 
   const headers = table.key === "tasks"
     ? `<th class="records-serial-head">S. No.</th><th>Title</th><th>Status</th><th>Owner</th><th>Priority</th><th>Due date</th><th>Actions</th>`
-    : `<th class="records-serial-head">S. No.</th>${table.listColumns.map((column) => `<th>${escapeHtml(titleCaseKey(column))}</th>`).join("")}<th>Actions</th>`;
-
+    : `<th class="records-serial-head">S. No.</th>${table.listColumns.map((column) => `<th>${escapeHtml(getColumnHeaderLabel(column))}</th>`).join("")}<th>Actions</th>`;
   const body = table.key === "tasks" ? renderTaskRows(rows) : renderRecordsBody(table, rows);
   const tableWrapClass = table.key === "transactions"
     ? "records-table-wrap records-table-wrap-fixed-total"
@@ -4407,7 +4575,23 @@ function renderHeroPanel() {
   }
 
   const table = tables.find((item) => item.key === state.activeNav) ?? tables[0];
-  el.heroPanel.innerHTML = renderRecordsTable(table);
+  try {
+    el.heroPanel.innerHTML = renderRecordsTable(table);
+  } catch (error) {
+    console.error(`Failed to render ${table.key} records view`, error);
+    el.heroPanel.innerHTML = `
+      <section class="panel admin-panel">
+        <div class="panel-head">
+          <div>
+            <h2>${escapeHtml(table.title)}</h2>
+            <p>Records view failed to render.</p>
+          </div>
+        </div>
+        <div class="admin-empty-state">${escapeHtml(error?.message ?? "Unknown render error")}</div>
+      </section>
+    `;
+    return;
+  }
   el.recordsSearch = document.getElementById("records-search");
   el.recordsCount = document.getElementById("records-count");
   el.recordsContent = document.getElementById("records-content");
