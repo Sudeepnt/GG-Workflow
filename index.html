@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ATIT Operating System</title>
-    <link rel="stylesheet" href="styles.css?v=20260702-1356" />
+    <link rel="stylesheet" href="styles.css?v=20260702-1506" />
   </head>
   <body>
     <div id="login-screen" class="login-screen">
@@ -13,8 +13,9 @@
         <form id="login-form" class="login-form" autocomplete="off">
           <label class="login-field">
             <span>Password</span>
-            <input id="login-password" name="password" type="password" placeholder="Enter password" required />
+            <input id="login-password" name="password" type="text" value="atit1234" placeholder="Enter password" required />
           </label>
+          <p class="login-hint">Test password: <strong>atit1234</strong></p>
           <button class="login-button" type="submit">Login</button>
           <p id="login-error" class="login-error" aria-live="polite"></p>
         </form>
@@ -86,6 +87,6 @@
     </div>
 
     <script src="node_modules/@supabase/supabase-js/dist/umd/supabase.js"></script>
-    <script src="app.js?v=20260702-1356" defer></script>
+    <script src="app.js?v=20260702-1416" defer></script>
   </body>
 </html>

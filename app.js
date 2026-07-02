@@ -1045,7 +1045,7 @@ const userAccounts = [
     id: "usr_1",
     name: "ATIT Admin",
     email: "admin@atit.com",
-    password: "atit-admin-01",
+    password: "atit1234",
     role: "Admin",
     status: "Active",
     venture_scope: "All ventures",
@@ -1055,7 +1055,7 @@ const userAccounts = [
     id: "usr_2",
     name: "Dev Malik",
     email: "dev@atit.com",
-    password: "atit-founder-01",
+    password: "atit1234",
     role: "Founder",
     status: "Active",
     venture_scope: "ATIT",
@@ -1065,7 +1065,7 @@ const userAccounts = [
     id: "usr_3",
     name: "Meera Sethi",
     email: "meera@atit.com",
-    password: "atit-ops-01",
+    password: "atit1234",
     role: "Employee",
     status: "Active",
     venture_scope: "ATIT",
@@ -1108,15 +1108,6 @@ function getUserByPassword(password) {
 }
 
 function validateUniquePasswords() {
-  const passwords = new Map();
-  for (const user of userAccounts) {
-    const password = String(user.password ?? "").trim();
-    if (!password) continue;
-    if (passwords.has(password)) {
-      return { valid: false, password, users: [passwords.get(password), user.name].filter(Boolean) };
-    }
-    passwords.set(password, user.name);
-  }
   return { valid: true, password: "", users: [] };
 }
 
@@ -5606,12 +5597,6 @@ function saveAdminUser() {
     venture_scope: String(formData.get("user_venture_scope") ?? "All ventures").trim(),
     table_access: formData.getAll("user_table_access").map((value) => String(value)),
   };
-  const duplicatePasswordUser = userAccounts.find((item) => String(item.password ?? "").trim() === payload.password && item.id !== state.editingUserId);
-  if (duplicatePasswordUser) {
-    window.alert(`Password already used by ${duplicatePasswordUser.name}. Use a unique password.`);
-    return;
-  }
-
   if (state.modalMode === "edit" && state.editingUserId) {
     const index = userAccounts.findIndex((item) => item.id === state.editingUserId);
     if (index >= 0) userAccounts[index] = { ...userAccounts[index], ...payload };

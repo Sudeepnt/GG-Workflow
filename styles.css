@@ -113,6 +113,18 @@ body.app-mobile {
   cursor: pointer;
 }
 
+.login-hint {
+  margin: -2px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.login-hint strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .login-error {
   margin: 0;
   min-height: 18px;
@@ -593,8 +605,10 @@ input[type="search"] {
 }
 
 .hero-panel {
-  padding: 18px;
-  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
   min-width: 0;
 }
 
@@ -3742,7 +3756,7 @@ input[type="search"] {
   }
 
   .content {
-    padding: 14px;
+    padding: 0;
     gap: 14px;
     min-height: 100dvh;
     align-content: start;
@@ -3753,6 +3767,7 @@ input[type="search"] {
     position: sticky;
     top: 0;
     z-index: 10;
+    padding: 14px 7px 2px;
     background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(10px);
   }
@@ -3760,7 +3775,18 @@ input[type="search"] {
   .panel,
   .hero-panel {
     border-radius: 18px;
-    padding: 16px;
+  }
+
+  .hero-panel {
+    padding: 0;
+  }
+
+  .page-view-dashboard,
+  .page-view-records,
+  .page-view-detail,
+  .page-view-admin,
+  .page-view-gantt {
+    padding-inline: 7px;
   }
 
   .hero-panel:not(.hero-panel-gantt) {
@@ -3778,6 +3804,45 @@ input[type="search"] {
   .page-view-detail .detail-header,
   .page-view-dashboard .hero-head {
     margin-top: 0;
+  }
+
+  .records-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title title"
+      "search actions";
+    align-items: end;
+  }
+
+  .records-toolbar-title {
+    grid-area: title;
+  }
+
+  .records-toolbar-search {
+    grid-area: search;
+  }
+
+  .records-toolbar-actions {
+    grid-area: actions;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .records-toolbar-options,
+  .records-view-toggle {
+    display: none;
+  }
+
+  .new-record-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+    border-radius: 12px;
+    font-size: 20px;
+    line-height: 1;
   }
 
   .board {
@@ -3936,10 +4001,6 @@ input[type="search"] {
 }
 
 @media (max-width: 560px) {
-  .content {
-    padding: 12px;
-  }
-
   .panel,
   .hero-panel {
     padding: 14px;
