@@ -138,7 +138,7 @@ const tables = [
       { name: "start", label: "Start", type: "datetime-local" },
       { name: "end", label: "End", type: "datetime-local" },
       { name: "participants", label: "Participants", type: "text", placeholder: "Comma separated people" },
-      { name: "location", label: "Location", type: "text" },
+      { name: "location", label: "Location", type: "select", options: ["Google Meet", "Zoom", "Discord", "Office", "Client Location"] },
       { name: "summary", label: "Summary", type: "textarea" },
       { name: "calendar_ref", label: "Calendar ref", type: "text" },
     ],
@@ -170,6 +170,7 @@ const SUPABASE_URL = "https://enozxcriirsytgrjcxbt.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_tULBf6UJrmdpNRdeb5SQmw_VOAoUhpr";
 const APP_TIMEZONE = "Asia/Kolkata";
 const REMOTE_TABLE_KEYS = new Set(tables.map((table) => table.key));
+const APP_SESSION_KEY = "atit.appAuthenticated";
 const supabaseClientFactory = globalThis.supabase?.createClient ?? null;
 const supabaseClient = supabaseClientFactory
   ? supabaseClientFactory(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
@@ -1091,6 +1092,34 @@ function seedRecordMetadata() {
 
 seedRecordMetadata();
 
+function getStoredAuthState() {
+  return String(globalThis.sessionStorage?.getItem(APP_SESSION_KEY) ?? "") === "1";
+}
+
+function setStoredAuthState(value) {
+  if (value) globalThis.sessionStorage?.setItem(APP_SESSION_KEY, "1");
+  else globalThis.sessionStorage?.removeItem(APP_SESSION_KEY);
+}
+
+function getUserByPassword(password) {
+  const normalized = String(password ?? "").trim();
+  if (!normalized) return null;
+  return userAccounts.find((user) => String(user.password ?? "").trim() === normalized) ?? null;
+}
+
+function validateUniquePasswords() {
+  const passwords = new Map();
+  for (const user of userAccounts) {
+    const password = String(user.password ?? "").trim();
+    if (!password) continue;
+    if (passwords.has(password)) {
+      return { valid: false, password, users: [passwords.get(password), user.name].filter(Boolean) };
+    }
+    passwords.set(password, user.name);
+  }
+  return { valid: true, password: "", users: [] };
+}
+
 const state = {
   role: "Founder",
   projectId: "prj_1",
@@ -1114,10 +1143,14 @@ const state = {
   ganttWeekStart: null,
   ganttScale: "week",
   googleMapsApiKey: "",
+  isAuthenticated: false,
+  isMobileViewport: false,
+  isMobileNavOpen: false,
 };
 
 const el = {};
 let confirmResolve = null;
+const MOBILE_BREAKPOINT = 820;
 const GOOGLE_MAPS_API_KEY_STORAGE_KEY = "atit.googleMapsApiKey";
 const googleMapsRuntime = {
   loaderPromise: null,
@@ -2795,62 +2828,64 @@ function renderRecordDetail(table, record) {
   };
 
   return `
-    <div class="detail-view">
-      <div class="detail-header">
-        <div class="detail-header-main">
-          <button class="detail-back-button" type="button" data-detail-action="back" aria-label="Back to list">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="m15 18-6-6 6-6"></path>
-            </svg>
-          </button>
-          <div class="detail-title-block">
-            <span class="detail-title-icon ${escapeHtml(detailIconTone)}" aria-hidden="true">${getTableIcon(table.key)}</span>
-            <div class="detail-title-copy">
-              <div class="detail-eyebrow">${escapeHtml(detailEyebrow)}</div>
-              <h2>${escapeHtml(record.name || record.title || record.reference || table.singular)}</h2>
+    <div class="page-view page-view-detail">
+      <div class="detail-view">
+        <div class="detail-header">
+          <div class="detail-header-main">
+            <button class="detail-back-button" type="button" data-detail-action="back" aria-label="Back to list">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m15 18-6-6 6-6"></path>
+              </svg>
+            </button>
+            <div class="detail-title-block">
+              <span class="detail-title-icon ${escapeHtml(detailIconTone)}" aria-hidden="true">${getTableIcon(table.key)}</span>
+              <div class="detail-title-copy">
+                <div class="detail-eyebrow">${escapeHtml(detailEyebrow)}</div>
+                <h2>${escapeHtml(record.name || record.title || record.reference || table.singular)}</h2>
+              </div>
             </div>
           </div>
+          <div class="detail-actions">
+            <button class="record-action-button" type="button" data-detail-action="tree">${state.detailTreeOpen ? "Hide tree" : "Tree view"}</button>
+            <button class="record-action-button" type="button" data-detail-action="edit">Edit</button>
+            <button class="record-action-button" type="button" data-detail-action="delete">Delete</button>
+          </div>
         </div>
-        <div class="detail-actions">
-          <button class="record-action-button" type="button" data-detail-action="tree">${state.detailTreeOpen ? "Hide tree" : "Tree view"}</button>
-          <button class="record-action-button" type="button" data-detail-action="edit">Edit</button>
-          <button class="record-action-button" type="button" data-detail-action="delete">Delete</button>
+        <div class="detail-grid">
+          ${rows}
         </div>
-      </div>
-      <div class="detail-grid">
-        ${rows}
-      </div>
-      ${documentBody ? `
-        <section class="detail-body-block">
+        ${documentBody ? `
+          <section class="detail-body-block">
+            <div class="detail-linked-head">
+              <h3>Body</h3>
+            </div>
+            <p class="detail-body-copy">${escapeHtml(documentBody)}</p>
+          </section>
+        ` : ""}
+        <section class="detail-linked">
           <div class="detail-linked-head">
-            <h3>Body</h3>
+            <h3>Linked records - auto-assembled</h3>
           </div>
-          <p class="detail-body-copy">${escapeHtml(documentBody)}</p>
-        </section>
-      ` : ""}
-      <section class="detail-linked">
-        <div class="detail-linked-head">
-          <h3>Linked records - auto-assembled</h3>
-        </div>
-        ${state.detailTreeOpen ? `<div class="detail-tree">${renderDetailTree(table.key, record)}</div>` : `
-          <div class="detail-linked-groups">
-            ${connections.map((connection) => `
-              <div class="detail-linked-group">
-                <div class="detail-linked-group-head">
-                  <span class="detail-linked-group-icon" aria-hidden="true">${getTableIcon(connection.key || "")}</span>
-                  <span class="detail-linked-group-title">${escapeHtml(connection.label)}</span>
-                  <span class="detail-linked-group-count">(${connection.items.length})</span>
-                </div>
-                ${connection.key === "people" ? renderPeopleGroups(connection.items) : `
-                  <div class="detail-linked-list">
-                    ${renderLinkedRows(connection.items)}
+          ${state.detailTreeOpen ? `<div class="detail-tree">${renderDetailTree(table.key, record)}</div>` : `
+            <div class="detail-linked-groups">
+              ${connections.map((connection) => `
+                <div class="detail-linked-group">
+                  <div class="detail-linked-group-head">
+                    <span class="detail-linked-group-icon" aria-hidden="true">${getTableIcon(connection.key || "")}</span>
+                    <span class="detail-linked-group-title">${escapeHtml(connection.label)}</span>
+                    <span class="detail-linked-group-count">(${connection.items.length})</span>
                   </div>
-                `}
-              </div>
-            `).join("")}
-          </div>
-        `}
-      </section>
+                  ${connection.key === "people" ? renderPeopleGroups(connection.items) : `
+                    <div class="detail-linked-list">
+                      ${renderLinkedRows(connection.items)}
+                    </div>
+                  `}
+                </div>
+              `).join("")}
+            </div>
+          `}
+        </section>
+      </div>
     </div>
   `;
 }
@@ -2876,7 +2911,9 @@ function countLinks() {
 }
 
 function renderMeta() {
-  return;
+  if (!el.mobileNavTitle) return;
+  const activeItem = sidebarItems.find((item) => item.key === state.activeNav);
+  el.mobileNavTitle.textContent = activeItem?.label ?? "Dashboard";
 }
 
 function getSidebarToggleIcon() {
@@ -2894,10 +2931,58 @@ function getSidebarToggleIcon() {
 }
 
 function applySidebarState() {
-  el.layout.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
-  el.sidebarToggle.innerHTML = getSidebarToggleIcon();
-  el.sidebarToggle.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
-  el.sidebarToggle.setAttribute("aria-label", state.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar");
+  const collapsed = !state.isMobileViewport && state.sidebarCollapsed;
+  const navExpanded = state.isMobileViewport ? state.isMobileNavOpen : !collapsed;
+  el.layout.classList.toggle("sidebar-collapsed", collapsed);
+  el.layout.classList.toggle("mobile-nav-open", state.isMobileViewport && state.isMobileNavOpen);
+  document.body.classList.toggle("app-mobile", state.isMobileViewport);
+  document.body.classList.toggle("app-mobile-nav-open", state.isMobileViewport && state.isMobileNavOpen);
+
+  if (el.mobileNavButton) {
+    el.mobileNavButton.innerHTML = state.isMobileNavOpen
+      ? `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 6 18 18"></path>
+          <path d="M18 6 6 18"></path>
+        </svg>
+      `
+      : `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7h16"></path>
+          <path d="M4 12h16"></path>
+          <path d="M4 17h16"></path>
+        </svg>
+      `;
+    el.mobileNavButton.setAttribute("aria-expanded", String(state.isMobileNavOpen));
+    el.mobileNavButton.setAttribute("aria-label", state.isMobileNavOpen ? "Close navigation" : "Open navigation");
+  }
+
+  el.sidebarToggle.innerHTML = state.isMobileViewport
+    ? `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 6 18 18"></path>
+        <path d="M18 6 6 18"></path>
+      </svg>
+    `
+    : getSidebarToggleIcon();
+  el.sidebarToggle.setAttribute("aria-expanded", String(navExpanded));
+  el.sidebarToggle.setAttribute("aria-label", state.isMobileViewport
+    ? "Close menu panel"
+    : state.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar");
+}
+
+function closeMobileNav() {
+  if (!state.isMobileNavOpen) return;
+  state.isMobileNavOpen = false;
+  applySidebarState();
+}
+
+function syncViewportState() {
+  const nextIsMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+  if (state.isMobileViewport === nextIsMobile) return;
+  state.isMobileViewport = nextIsMobile;
+  if (!nextIsMobile) state.isMobileNavOpen = false;
+  applySidebarState();
 }
 
 function renderSidebarNav() {
@@ -2928,6 +3013,11 @@ function renderSidebarNav() {
       if (sidebarKind === "table") {
         state.activeTable = sidebarKey;
       }
+      if (state.isMobileViewport) {
+        state.isMobileNavOpen = false;
+        applySidebarState();
+      }
+      renderMeta();
       renderHeroPanel();
     });
   });
@@ -2947,6 +3037,7 @@ function getInitials(name) {
 }
 
 function renderSidebarFooter() {
+  if (!state.isAuthenticated) return;
   const user = getCurrentSidebarUser();
   if (!user || !el.sidebarFooter) return;
 
@@ -2968,19 +3059,12 @@ function renderSidebarFooter() {
   `;
 
   document.getElementById("sidebar-logout")?.addEventListener("click", () => {
-    state.activeNav = "dashboard";
-    state.search = "";
-    state.detailTableKey = null;
-    state.detailRecordId = null;
-    state.detailTreeOpen = false;
-    clearDetailHistory();
-    renderSidebarNav();
-    renderSidebarFooter();
-    renderHeroPanel();
+    logoutApp();
   });
 }
 
 function renderBoard() {
+  if (!state.isAuthenticated) return;
   el.board.innerHTML = tables.map((table) => `
     <article class="table-tile" data-open-list="${table.key}">
       <div class="table-tile-head">
@@ -3011,6 +3095,52 @@ function renderBoard() {
       openForm(button.dataset.openForm);
     });
   });
+}
+
+function renderLoginScreen(message = "") {
+  if (!el.loginScreen) return;
+  el.loginScreen.hidden = false;
+  document.body.classList.remove("app-authenticated");
+  if (el.loginError) el.loginError.textContent = message;
+  if (el.loginPassword) {
+    el.loginPassword.value = "";
+    el.loginPassword.focus();
+  }
+}
+
+function showAppShell() {
+  if (!el.loginScreen) return;
+  el.loginScreen.hidden = true;
+  document.body.classList.add("app-authenticated");
+}
+
+function loginApp(password) {
+  const user = getUserByPassword(password);
+  if (!user) {
+    renderLoginScreen("Invalid password.");
+    return false;
+  }
+
+  state.isAuthenticated = true;
+  state.role = user.role;
+  setStoredAuthState(true);
+  if (el.loginError) el.loginError.textContent = "";
+  showAppShell();
+  renderAll();
+  return true;
+}
+
+function logoutApp() {
+  state.isAuthenticated = false;
+  setStoredAuthState(false);
+  state.activeNav = "dashboard";
+  state.search = "";
+  state.detailTableKey = null;
+  state.detailRecordId = null;
+  state.detailTreeOpen = false;
+  clearDetailHistory();
+  renderLoginScreen("");
+  renderAll();
 }
 
 function getTodayKey() {
@@ -3574,9 +3704,10 @@ function renderGanttChart() {
   `;
 
   return `
-    <section class="panel gantt-panel">
-      <div class="gantt-app-shell">
-        <header class="gantt-topbar">
+    <div class="page-view page-view-gantt">
+      <section class="panel gantt-panel">
+        <div class="gantt-app-shell">
+          <header class="gantt-topbar">
           <div class="gantt-title-row">
             <span class="gantt-menu-icon">≡</span>
             <h2>Gantt Chart</h2>
@@ -3597,7 +3728,7 @@ function renderGanttChart() {
             <div><strong>${taskRows.length}</strong><span>TASKS</span></div>
             <div><strong>${eventRows.length}</strong><span>EVENTS</span></div>
           </div>
-        </header>
+          </header>
         <div class="gantt-board" style="${columnLineStyle(gridRows.length)}">
           <aside class="gantt-workstreams">
             <div class="gantt-workstream-label">WORKSTREAMS</div>
@@ -3621,8 +3752,9 @@ function renderGanttChart() {
             </div>
           </main>
         </div>
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   `;
 }
 
@@ -4360,18 +4492,22 @@ function renderRecordsTable(table) {
 
   if (table.key === "people") {
     return `
-      ${toolbar}
-      <div id="records-content" class="people-records">
-        ${renderPeopleRecords(rows)}
+      <div class="page-view page-view-records">
+        ${toolbar}
+        <div id="records-content" class="people-records">
+          ${renderPeopleRecords(rows)}
+        </div>
       </div>
     `;
   }
 
   if (table.key === "assets" && state.assetsView === "map") {
     return `
-      ${toolbar}
-      <div id="records-content" class="asset-map-records">
-        ${renderAssetMapPanel(rows)}
+      <div class="page-view page-view-records">
+        ${toolbar}
+        <div id="records-content" class="asset-map-records">
+          ${renderAssetMapPanel(rows)}
+        </div>
       </div>
     `;
   }
@@ -4385,21 +4521,23 @@ function renderRecordsTable(table) {
     : "records-table-wrap";
 
   return `
-    ${toolbar}
-    <div class="${tableWrapClass}">
-      <table class="records-table">
-        <thead>
-          <tr>${headers}</tr>
-        </thead>
-        <tbody id="records-table-body">
-          ${body}
-        </tbody>
-      </table>
-      <div id="records-total-footer" class="records-total-footer" ${table.key === "transactions" ? "" : "hidden"}>
-        ${table.key === "transactions" ? `
-          <span>Visible amount total</span>
-          <strong>${escapeHtml(formatTransactionTotalByCurrency(rows) || "INR 0")}</strong>
-        ` : ""}
+    <div class="page-view page-view-records">
+      ${toolbar}
+      <div class="${tableWrapClass}">
+        <table class="records-table">
+          <thead>
+            <tr>${headers}</tr>
+          </thead>
+          <tbody id="records-table-body">
+            ${body}
+          </tbody>
+        </table>
+        <div id="records-total-footer" class="records-total-footer" ${table.key === "transactions" ? "" : "hidden"}>
+          ${table.key === "transactions" ? `
+            <span>Visible amount total</span>
+            <strong>${escapeHtml(formatTransactionTotalByCurrency(rows) || "INR 0")}</strong>
+          ` : ""}
+        </div>
       </div>
     </div>
   `;
@@ -4538,12 +4676,14 @@ function renderHeroPanel() {
 
   if (state.activeNav === "dashboard") {
     el.heroPanel.innerHTML = `
-      <div class="hero-minimal">
-        <div class="hero-head">
-          <div class="hero-kicker">create</div>
+      <div class="page-view page-view-dashboard">
+        <div class="hero-minimal">
+          <div class="hero-head">
+            <div class="hero-kicker">create</div>
+          </div>
+          <div id="board" class="board" aria-label="Create tables"></div>
+          ${renderDashboardAttention()}
         </div>
-        <div id="board" class="board" aria-label="Create tables"></div>
-        ${renderDashboardAttention()}
       </div>
     `;
     el.board = document.getElementById("board");
@@ -4555,15 +4695,17 @@ function renderHeroPanel() {
 
   if (state.activeNav === "admin") {
     el.heroPanel.innerHTML = `
-      <section class="panel admin-panel">
-        <div class="panel-head">
-          <div>
-            <h2>Admin</h2>
-            <p>Create users, passwords, and access control.</p>
+      <div class="page-view page-view-admin">
+        <section class="panel admin-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Admin</h2>
+              <p>Create users, passwords, and access control.</p>
+            </div>
           </div>
-        </div>
-        ${renderAdminWorkspace()}
-      </section>
+          ${renderAdminWorkspace()}
+        </section>
+      </div>
     `;
     bindAdminWorkspaceEvents();
     return;
@@ -4580,15 +4722,17 @@ function renderHeroPanel() {
   } catch (error) {
     console.error(`Failed to render ${table.key} records view`, error);
     el.heroPanel.innerHTML = `
-      <section class="panel admin-panel">
-        <div class="panel-head">
-          <div>
-            <h2>${escapeHtml(table.title)}</h2>
-            <p>Records view failed to render.</p>
+      <div class="page-view page-view-admin">
+        <section class="panel admin-panel">
+          <div class="panel-head">
+            <div>
+              <h2>${escapeHtml(table.title)}</h2>
+              <p>Records view failed to render.</p>
+            </div>
           </div>
-        </div>
-        <div class="admin-empty-state">${escapeHtml(error?.message ?? "Unknown render error")}</div>
-      </section>
+          <div class="admin-empty-state">${escapeHtml(error?.message ?? "Unknown render error")}</div>
+        </section>
+      </div>
     `;
     return;
   }
@@ -5462,6 +5606,11 @@ function saveAdminUser() {
     venture_scope: String(formData.get("user_venture_scope") ?? "All ventures").trim(),
     table_access: formData.getAll("user_table_access").map((value) => String(value)),
   };
+  const duplicatePasswordUser = userAccounts.find((item) => String(item.password ?? "").trim() === payload.password && item.id !== state.editingUserId);
+  if (duplicatePasswordUser) {
+    window.alert(`Password already used by ${duplicatePasswordUser.name}. Use a unique password.`);
+    return;
+  }
 
   if (state.modalMode === "edit" && state.editingUserId) {
     const index = userAccounts.findIndex((item) => item.id === state.editingUserId);
@@ -5502,6 +5651,16 @@ async function deleteRecord(tableKey, recordId) {
 }
 
 function bindEvents() {
+  el.loginForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const duplicatePasswords = validateUniquePasswords();
+    if (!duplicatePasswords.valid) {
+      renderLoginScreen("Duplicate passwords exist. Fix user passwords in Admin first.");
+      return;
+    }
+    loginApp(String(el.loginPassword?.value ?? "").trim());
+  });
+
   el.homeButton.addEventListener("click", () => {
     state.activeNav = "dashboard";
     state.search = "";
@@ -5509,14 +5668,30 @@ function bindEvents() {
     state.detailRecordId = null;
     state.detailTreeOpen = false;
     clearDetailHistory();
+    if (state.isMobileViewport) {
+      state.isMobileNavOpen = false;
+      applySidebarState();
+    }
+    renderMeta();
     renderSidebarNav();
     renderHeroPanel();
   });
 
   el.sidebarToggle.addEventListener("click", () => {
-    state.sidebarCollapsed = !state.sidebarCollapsed;
+    if (state.isMobileViewport) {
+      state.isMobileNavOpen = false;
+    } else {
+      state.sidebarCollapsed = !state.sidebarCollapsed;
+    }
     applySidebarState();
   });
+
+  el.mobileNavButton?.addEventListener("click", () => {
+    state.isMobileNavOpen = !state.isMobileNavOpen;
+    applySidebarState();
+  });
+
+  el.mobileNavScrim?.addEventListener("click", closeMobileNav);
 
   if (el.projectSelect) {
     el.projectSelect.addEventListener("change", (event) => {
@@ -5613,15 +5788,25 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (state.isMobileViewport && state.isMobileNavOpen) {
+      closeMobileNav();
+      return;
+    }
     if (el.confirmModal.classList.contains("open")) {
       closeDeleteConfirm(false);
       return;
     }
     closeForm();
   });
+
+  window.addEventListener("resize", syncViewportState);
 }
 
 function renderAll() {
+  if (!state.isAuthenticated) {
+    renderLoginScreen(el.loginError?.textContent ?? "");
+    return;
+  }
   renderMeta();
   applySidebarState();
   renderSidebarNav();
@@ -5633,11 +5818,18 @@ function renderAll() {
 }
 
 async function init() {
+  el.loginScreen = document.getElementById("login-screen");
+  el.loginForm = document.getElementById("login-form");
+  el.loginPassword = document.getElementById("login-password");
+  el.loginError = document.getElementById("login-error");
   el.layout = document.querySelector(".layout");
   el.sidebarNav = document.getElementById("sidebar-nav");
   el.sidebarFooter = document.getElementById("sidebar-footer");
   el.homeButton = document.getElementById("home-button");
   el.sidebarToggle = document.getElementById("sidebar-toggle");
+  el.mobileNavButton = document.getElementById("mobile-nav-button");
+  el.mobileNavTitle = document.getElementById("mobile-nav-title");
+  el.mobileNavScrim = document.getElementById("mobile-nav-scrim");
   el.heroPanel = document.getElementById("hero-panel");
   el.modal = document.getElementById("modal");
   el.modalTitle = document.getElementById("modal-title");
@@ -5654,7 +5846,15 @@ async function init() {
 
   state.googleMapsApiKey = getGoogleMapsApiKey();
   applyUrlState();
+  state.isMobileViewport = window.innerWidth <= MOBILE_BREAKPOINT;
   bindEvents();
+  state.isAuthenticated = getStoredAuthState();
+  const validation = validateUniquePasswords();
+  if (!validation.valid) {
+    console.error(`Duplicate passwords found for: ${validation.users.join(", ")} (${validation.password})`);
+  }
+  if (state.isAuthenticated) showAppShell();
+  else renderLoginScreen("");
   renderAll();
   hydrateDataFromSupabase()
     .then(() => {
