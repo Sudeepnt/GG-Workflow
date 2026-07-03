@@ -1966,6 +1966,34 @@ function getAssetMarkerLabelText(asset) {
   return name.length > 28 ? `${name.slice(0, 28).trim()}...` : name;
 }
 
+function setAssetMapLoading(isLoading, message = "Loading map...") {
+  const shell = document.querySelector(".asset-map-stage-inner");
+  const status = document.getElementById("asset-map-loading");
+  if (shell) {
+    shell.classList.toggle("is-loading", Boolean(isLoading));
+  }
+  if (status) {
+    status.hidden = !isLoading;
+    const copy = status.querySelector("span");
+    if (copy) copy.textContent = message;
+  }
+}
+
+function createLeafletAssetIcon(L) {
+  return L.divIcon({
+    className: "asset-map-leaflet-marker-wrap",
+    html: `
+      <span class="asset-map-leaflet-marker" aria-hidden="true">
+        <span class="asset-map-leaflet-marker-core"></span>
+      </span>
+    `,
+    iconSize: [24, 32],
+    iconAnchor: [12, 30],
+    popupAnchor: [0, -26],
+    tooltipAnchor: [0, -24],
+  });
+}
+
 function resetAssetMap() {
   googleMapsRuntime.markers.forEach((marker) => {
     if (marker?.setMap) marker.setMap(null);
@@ -2070,10 +2098,12 @@ function focusAssetMarker(recordId) {
 async function initializeAssetMap(rows) {
   const canvas = document.getElementById("asset-map-canvas");
   if (!canvas || state.activeNav !== "assets" || state.assetsView !== "map") return;
+  setAssetMapLoading(true, "Loading map...");
 
   const mappableAssets = getMappableAssets(rows);
   if (!mappableAssets.length) {
     resetAssetMap();
+    setAssetMapLoading(false);
     return;
   }
 
@@ -2147,12 +2177,22 @@ async function initializeAssetMap(rows) {
   }, 250);
 
   globalThis.setTimeout(() => {
+    if (!googleMapsRuntime.map || state.activeNav !== "assets" || state.assetsView !== "map") return;
+    const activeCanvas = document.getElementById("asset-map-canvas");
+    const visibleText = String(activeCanvas?.textContent ?? "").trim();
+    if (visibleText.includes("Oops! Something went wrong.")) return;
+    setAssetMapLoading(false);
+  }, 500);
+
+  globalThis.setTimeout(() => {
     const activeCanvas = document.getElementById("asset-map-canvas");
     if (!activeCanvas || state.activeNav !== "assets" || state.assetsView !== "map") return;
     const visibleText = String(activeCanvas.textContent ?? "").trim();
     if (!visibleText.includes("Oops! Something went wrong.")) return;
+    setAssetMapLoading(true, "Switching to backup map...");
     initializeLeafletAssetMap(rows).catch((fallbackError) => {
       console.error("Leaflet fallback failed after Google Maps error surface", fallbackError);
+      setAssetMapLoading(false);
     });
   }, 1200);
 }
@@ -2160,10 +2200,12 @@ async function initializeAssetMap(rows) {
 async function initializeLeafletAssetMap(rows) {
   const canvas = document.getElementById("asset-map-canvas");
   if (!canvas || state.activeNav !== "assets" || state.assetsView !== "map") return;
+  setAssetMapLoading(true, "Loading map...");
 
   const mappableAssets = getMappableAssets(rows);
   if (!mappableAssets.length) {
     resetAssetMap();
+    setAssetMapLoading(false);
     return;
   }
 
@@ -2182,9 +2224,11 @@ async function initializeLeafletAssetMap(rows) {
   }).addTo(leafletRuntime.map);
 
   const bounds = [];
+  const markerIcon = createLeafletAssetIcon(L);
   mappableAssets.forEach((asset) => {
     const marker = L.marker([getAssetLatitude(asset), getAssetLongitude(asset)], {
       title: String(asset.name || "Asset"),
+      icon: markerIcon,
     }).addTo(leafletRuntime.map);
     marker.bindPopup(`
       <div class="asset-map-info-window">
@@ -2218,6 +2262,7 @@ async function initializeLeafletAssetMap(rows) {
     } else {
       leafletRuntime.map.fitBounds(bounds, { padding: [48, 48] });
     }
+    setAssetMapLoading(false);
   }, 250);
 }
 
@@ -4772,6 +4817,11 @@ function renderAssetMapPanel(rows) {
         <div class="asset-map-stage-inner">
           ${stageToolbar}
           <div id="asset-map-canvas" class="asset-map-canvas" aria-label="Asset locations map"></div>
+          <div id="asset-map-loading" class="asset-map-loading" aria-live="polite">
+            <div class="asset-map-loading-card">
+              <span>Loading map...</span>
+            </div>
+          </div>
         </div>
       `;
 
