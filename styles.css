@@ -476,9 +476,9 @@ body.app-mobile {
 .mobile-nav-button {
   width: 44px;
   height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
   display: inline-flex;
   align-items: center;
@@ -1626,6 +1626,13 @@ input[type="search"] {
   letter-spacing: -0.01em;
 }
 
+.records-title-count {
+  display: none;
+  color: var(--muted);
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
 .records-toolbar-title {
   min-width: 0;
 }
@@ -1699,9 +1706,20 @@ input[type="search"] {
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  padding: 9px 14px;
+  width: 44px;
+  height: 40px;
+  padding: 0;
   font: inherit;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.records-view-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .records-view-button.active {
@@ -1773,6 +1791,7 @@ input[type="search"] {
 .asset-map-stage-inner {
   display: grid;
   gap: 0;
+  position: relative;
 }
 
 .asset-map-canvas {
@@ -1783,12 +1802,31 @@ input[type="search"] {
     #eef3ef;
 }
 
-.asset-map-controls {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 14px 14px 0;
+.asset-map-stage-toolbar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+}
+
+.asset-map-expand-button {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
+
+.asset-map-expand-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .asset-map-empty {
@@ -1926,6 +1964,62 @@ input[type="search"] {
   max-width: 220px;
   font-family: Arial, Helvetica, sans-serif;
   color: #111111;
+}
+
+.asset-map-shell.is-expanded .asset-map-summary,
+.asset-map-shell.is-expanded .asset-map-list {
+  display: none;
+}
+
+.asset-map-shell.is-expanded .asset-map-layout {
+  display: block;
+  min-height: 0;
+}
+
+.asset-map-shell.is-expanded .asset-map-stage {
+  position: fixed;
+  inset: 16px;
+  z-index: 60;
+  border-radius: 24px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.2);
+}
+
+.asset-map-shell.is-expanded .asset-map-stage-inner,
+.asset-map-shell.is-expanded .asset-map-canvas,
+.asset-map-shell.is-expanded .asset-map-empty {
+  min-height: calc(100vh - 32px);
+  height: calc(100vh - 32px);
+}
+
+.asset-map-marker-label {
+  margin-top: -42px;
+  padding: 4px 8px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  color: #111111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.asset-map-leaflet-tooltip {
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  color: #111111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+.asset-map-leaflet-tooltip::before {
+  display: none;
 }
 
 .records-table-wrap-fixed-total {
@@ -3036,85 +3130,72 @@ input[type="search"] {
   gap: 14px;
 }
 
+.admin-panel-head {
+  margin-bottom: 12px;
+}
+
 .admin-workspace-head {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  padding-bottom: 12px;
 }
 
-.admin-user-list {
+.admin-user-table-wrap {
+  overflow-x: auto;
+  padding-top: 0;
+}
+
+.admin-user-table {
+  min-width: 640px;
+}
+
+.admin-user-table td {
+  vertical-align: middle;
+}
+
+.admin-user-name-cell {
   display: grid;
-  gap: 12px;
-}
-
-.admin-user-card {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  background: #ffffff;
-}
-
-.admin-user-main {
-  display: grid;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
 }
 
-.admin-user-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.admin-user-name-cell strong {
+  font-size: 14px;
 }
 
-.admin-user-role {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 10px;
+.admin-user-name-cell span {
   font-size: 12px;
   color: var(--muted);
 }
 
-.admin-user-meta {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+.admin-user-empty {
   color: var(--muted);
-  font-size: 13px;
-}
-
-.admin-user-password {
-  font-size: 13px;
-}
-
-.admin-user-access {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.admin-access-chip {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.admin-access-chip-full {
-  color: #1f7a35;
-  border-color: rgba(31, 122, 53, 0.24);
-  background: rgba(225, 246, 231, 0.9);
+  text-align: center;
 }
 
 .admin-user-actions {
   display: flex;
   gap: 8px;
   flex: 0 0 auto;
+}
+
+.admin-user-icon-button {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-user-icon-button svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .admin-access-fieldset {
@@ -3757,7 +3838,7 @@ input[type="search"] {
 
   .content {
     padding: 0;
-    gap: 14px;
+    gap: 0;
     min-height: 100dvh;
     align-content: start;
   }
@@ -3767,7 +3848,7 @@ input[type="search"] {
     position: sticky;
     top: 0;
     z-index: 10;
-    padding: 14px 7px 2px;
+    padding: 14px 3px 2px;
     background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(10px);
   }
@@ -3786,7 +3867,7 @@ input[type="search"] {
   .page-view-detail,
   .page-view-admin,
   .page-view-gantt {
-    padding-inline: 7px;
+    padding-inline: 3px;
   }
 
   .hero-panel:not(.hero-panel-gantt) {
@@ -3800,7 +3881,7 @@ input[type="search"] {
 
   .page-view-gantt .gantt-topbar,
   .page-view-records .records-toolbar,
-  .page-view-admin .panel-head,
+  .page-view-admin .admin-panel-head,
   .page-view-detail .detail-header,
   .page-view-dashboard .hero-head {
     margin-top: 0;
@@ -3809,13 +3890,16 @@ input[type="search"] {
   .records-toolbar {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "title title"
-      "search actions";
+      "search actions"
+      "toggle toggle";
     align-items: end;
+    gap: 8px;
+    padding-top: 0;
+    padding-bottom: 10px;
   }
 
   .records-toolbar-title {
-    grid-area: title;
+    display: none;
   }
 
   .records-toolbar-search {
@@ -3830,9 +3914,28 @@ input[type="search"] {
     justify-content: flex-end;
   }
 
-  .records-toolbar-options,
-  .records-view-toggle {
+  .records-toolbar-options {
     display: none;
+  }
+
+  .records-view-toggle {
+    grid-area: toggle;
+    display: inline-flex;
+    justify-self: start;
+    width: fit-content;
+  }
+
+  .asset-map-summary {
+    display: none;
+  }
+
+  .asset-map-list {
+    display: none;
+  }
+
+  .asset-map-layout {
+    display: block;
+    min-height: 0;
   }
 
   .new-record-button {
@@ -3867,6 +3970,56 @@ input[type="search"] {
   .page-view-admin .admin-panel,
   .page-view-dashboard .hero-minimal {
     min-height: 100%;
+  }
+
+  .page-view-admin .admin-workspace {
+    gap: 0;
+  }
+
+  .page-view-admin .admin-workspace-head {
+    padding-bottom: 0;
+  }
+
+  .page-view-admin .admin-panel-head {
+    display: none;
+  }
+
+  .admin-user-table {
+    min-width: 0;
+  }
+
+  .admin-user-table th:nth-child(1),
+  .admin-user-table td:nth-child(1) {
+    min-width: 150px;
+  }
+
+  .admin-user-table th,
+  .admin-user-table td {
+    padding: 12px 6px;
+  }
+
+  .admin-user-name-cell span {
+    display: none;
+  }
+
+  .records-table-wrap-fixed-total {
+    padding-bottom: 112px;
+  }
+
+  .records-table-wrap-fixed-total .records-total-footer {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    margin-top: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(10px);
+    font-size: 16px;
   }
 
   .attention-panel-meta {

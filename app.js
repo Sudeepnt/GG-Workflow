@@ -568,13 +568,13 @@ const data = {
   assets: [
     {
       id: "ast_1",
-      name: "a1",
+      name: "Indiranagar Corner Plot",
       date: "2026-06-28",
       venture: "v1",
       type: "Land",
-      address: "venture level",
-      lat: 0,
-      lng: 0,
+      address: "100 Feet Road, Indiranagar, Bengaluru",
+      lat: 12.9719,
+      lng: 77.6412,
       area: "1 ac",
       unit: "lot",
       owner_ventures: [{ venture: "v1", stake: "100" }],
@@ -582,14 +582,14 @@ const data = {
     },
     {
       id: "ast_2",
-      name: "a2",
+      name: "Whitefield Commerce Block",
       date: "2026-06-28",
       venture: "v1",
       project: "p1",
       type: "Building",
-      address: "project level",
-      lat: 0,
-      lng: 0,
+      address: "ITPL Main Road, Whitefield, Bengaluru",
+      lat: 12.9698,
+      lng: 77.7499,
       area: "5000 sqft",
       unit: "b1",
       owner_ventures: [{ venture: "v1", stake: "100" }],
@@ -597,19 +597,166 @@ const data = {
     },
     {
       id: "ast_3",
-      name: "a3",
+      name: "Jayanagar Residential Unit",
       date: "2026-06-28",
       venture: "v1",
       project: "p1",
       task: "t1",
       type: "Unit",
-      address: "task level",
-      lat: 0,
-      lng: 0,
+      address: "4th Block, Jayanagar, Bengaluru",
+      lat: 12.9279,
+      lng: 77.5839,
       area: "1200 sqft",
       unit: "u1",
       owner_ventures: [{ venture: "v1", stake: "100" }],
       status: "Operational",
+    },
+    {
+      id: "ast_4",
+      name: "Koramangala Studio Block",
+      date: "2026-06-29",
+      venture: "v1",
+      project: "p1",
+      type: "Building",
+      address: "80 Feet Road, Koramangala, Bengaluru",
+      lat: 12.9352,
+      lng: 77.6245,
+      area: "4200 sqft",
+      unit: "k1",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Operational",
+    },
+    {
+      id: "ast_5",
+      name: "HSR Layout Office Suite",
+      date: "2026-06-29",
+      venture: "v1",
+      project: "p2",
+      type: "Unit",
+      address: "27th Main Road, HSR Layout, Bengaluru",
+      lat: 12.9116,
+      lng: 77.6474,
+      area: "1800 sqft",
+      unit: "hsr-2a",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Operational",
+    },
+    {
+      id: "ast_6",
+      name: "Hebbal Logistics Yard",
+      date: "2026-06-30",
+      venture: "v2",
+      project: "p3",
+      type: "Warehouse",
+      address: "Outer Ring Road, Hebbal, Bengaluru",
+      lat: 13.0352,
+      lng: 77.5970,
+      area: "2.4 ac",
+      unit: "yard-1",
+      owner_ventures: [{ venture: "v2", stake: "100" }],
+      status: "Under-Development",
+    },
+    {
+      id: "ast_7",
+      name: "Electronic City Plant Parcel",
+      date: "2026-06-30",
+      venture: "v2",
+      project: "p3",
+      type: "Land",
+      address: "Phase 1, Electronic City, Bengaluru",
+      lat: 12.8456,
+      lng: 77.6603,
+      area: "3 ac",
+      unit: "ec-plot",
+      owner_ventures: [{ venture: "v2", stake: "100" }],
+      status: "Under-Acquisition",
+    },
+    {
+      id: "ast_8",
+      name: "Malleshwaram Heritage House",
+      date: "2026-07-01",
+      venture: "v1",
+      type: "Building",
+      address: "Sampige Road, Malleshwaram, Bengaluru",
+      lat: 13.0035,
+      lng: 77.5706,
+      area: "3200 sqft",
+      unit: "mh-1",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Owned",
+    },
+    {
+      id: "ast_9",
+      name: "Rajajinagar Mixed Block",
+      date: "2026-07-01",
+      venture: "v1",
+      project: "p2",
+      type: "Mixed",
+      address: "Chord Road, Rajajinagar, Bengaluru",
+      lat: 12.9914,
+      lng: 77.5544,
+      area: "7600 sqft",
+      unit: "rj-7",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Operational",
+    },
+    {
+      id: "ast_10",
+      name: "Sarjapur Growth Parcel",
+      date: "2026-07-01",
+      venture: "v2",
+      project: "p3",
+      type: "Land",
+      address: "Sarjapur Road, Bengaluru",
+      lat: 12.9077,
+      lng: 77.6871,
+      area: "1.8 ac",
+      unit: "sg-4",
+      owner_ventures: [{ venture: "v2", stake: "100" }],
+      status: "Under-Development",
+    },
+    {
+      id: "ast_11",
+      name: "Yelahanka Storage Hub",
+      date: "2026-07-02",
+      venture: "v2",
+      type: "Warehouse",
+      address: "Bellary Road, Yelahanka, Bengaluru",
+      lat: 13.1005,
+      lng: 77.5963,
+      area: "6800 sqft",
+      unit: "yh-3",
+      owner_ventures: [{ venture: "v2", stake: "100" }],
+      status: "Operational",
+    },
+    {
+      id: "ast_12",
+      name: "Marathahalli Tech Loft",
+      date: "2026-07-02",
+      venture: "v1",
+      project: "p1",
+      type: "Unit",
+      address: "Outer Ring Road, Marathahalli, Bengaluru",
+      lat: 12.9591,
+      lng: 77.6974,
+      area: "2100 sqft",
+      unit: "mt-9",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Operational",
+    },
+    {
+      id: "ast_13",
+      name: "Banashankari Corner Site",
+      date: "2026-07-02",
+      venture: "v1",
+      type: "Land",
+      address: "Banashankari 2nd Stage, Bengaluru",
+      lat: 12.9255,
+      lng: 77.5468,
+      area: "0.75 ac",
+      unit: "bs-2",
+      owner_ventures: [{ venture: "v1", stake: "100" }],
+      status: "Owned",
     },
   ],
   transactions: [
@@ -1120,6 +1267,7 @@ const state = {
   activeNav: "dashboard",
   assetsView: "table",
   assetMapKeyEditorOpen: false,
+  assetMapExpanded: false,
   modalMode: "create",
   modalEntity: "table",
   editingRecordId: null,
@@ -1143,11 +1291,17 @@ const el = {};
 let confirmResolve = null;
 const MOBILE_BREAKPOINT = 820;
 const GOOGLE_MAPS_API_KEY_STORAGE_KEY = "atit.googleMapsApiKey";
+const LOCAL_TABLE_CACHE_STORAGE_KEY = "atit.localTableCache";
 const googleMapsRuntime = {
   loaderPromise: null,
   map: null,
   markers: [],
   infoWindow: null,
+};
+const leafletRuntime = {
+  loaderPromise: null,
+  map: null,
+  markers: [],
 };
 
 const arrayFields = new Set(["verticals", "tags"]);
@@ -1191,7 +1345,7 @@ const remoteTableColumns = {
   projects: ["id", "name", "venture", "status", "lead", "target_date", "budget", "summary", "priority", "created_at"],
   tasks: ["id", "title", "venture", "project", "parent_task", "status", "priority", "owner", "assignees", "depends_on", "due_date", "estimate", "time_logged", "external_shared_with", "created_at"],
   documents: ["id", "title", "date", "venture", "project", "task", "type", "body", "file_ref", "version", "status", "links", "permission", "tags", "created_at"],
-  assets: ["id", "name", "type", "status", "venture", "project", "owner_ventures", "location", "latitude", "longitude", "date", "notes", "created_at"],
+  assets: ["id", "name", "type", "status", "venture", "project", "task", "address", "lat", "lng", "area", "unit", "owner_ventures", "date", "notes", "created_at"],
   events: ["id", "title", "type", "venture", "project", "task", "date", "start", "duration", "location", "participants", "notes", "created_at"],
   transactions: ["id", "reference", "direction", "status", "venture", "project_asset", "counterparty", "amount", "currency", "due_date", "documents", "notes", "created_at"],
 };
@@ -1736,9 +1890,46 @@ function persistGoogleMapsApiKey(value) {
   }
 }
 
+function getPersistableTableData() {
+  return Object.fromEntries(
+    tables.map((table) => [table.key, data[table.key] ?? []]),
+  );
+}
+
+function persistLocalTableCache() {
+  try {
+    globalThis.localStorage?.setItem(LOCAL_TABLE_CACHE_STORAGE_KEY, JSON.stringify(getPersistableTableData()));
+  } catch {
+    // Ignore storage failures and keep runtime data only.
+  }
+}
+
+function applyLocalTableCache() {
+  try {
+    const raw = globalThis.localStorage?.getItem(LOCAL_TABLE_CACHE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    tables.forEach((table) => {
+      if (Array.isArray(parsed?.[table.key])) {
+        if (table.key === "assets") {
+          const merged = new Map((data[table.key] ?? []).map((row) => [String(row.id ?? ""), row]));
+          parsed[table.key].forEach((row) => {
+            merged.set(String(row.id ?? ""), row);
+          });
+          data[table.key] = Array.from(merged.values());
+        } else {
+          data[table.key] = parsed[table.key];
+        }
+      }
+    });
+  } catch {
+    // Ignore malformed cache and continue with runtime data.
+  }
+}
+
 function hasValidAssetCoordinates(row) {
-  const lat = Number(row?.lat);
-  const lng = Number(row?.lng);
+  const lat = getAssetLatitude(row);
+  const lng = getAssetLongitude(row);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
   if (lat === 0 && lng === 0) return false;
@@ -1753,6 +1944,28 @@ function getUnmappedAssets(rows) {
   return rows.filter((row) => !hasValidAssetCoordinates(row));
 }
 
+function getAssetLatitude(asset) {
+  return Number(asset?.lat ?? asset?.latitude);
+}
+
+function getAssetLongitude(asset) {
+  return Number(asset?.lng ?? asset?.longitude);
+}
+
+function getAssetMapAddress(asset) {
+  const address = String(asset?.address ?? asset?.location ?? "").trim();
+  if (address) return address;
+  const lat = asset?.lat ?? asset?.latitude ?? "—";
+  const lng = asset?.lng ?? asset?.longitude ?? "—";
+  return `${lat}, ${lng}`;
+}
+
+function getAssetMarkerLabelText(asset) {
+  const name = String(asset?.name ?? "").trim();
+  if (!name) return "Asset";
+  return name.length > 28 ? `${name.slice(0, 28).trim()}...` : name;
+}
+
 function resetAssetMap() {
   googleMapsRuntime.markers.forEach((marker) => {
     if (marker?.setMap) marker.setMap(null);
@@ -1760,6 +1973,12 @@ function resetAssetMap() {
   googleMapsRuntime.markers = [];
   googleMapsRuntime.map = null;
   googleMapsRuntime.infoWindow = null;
+  leafletRuntime.markers.forEach((marker) => {
+    if (marker?.remove) marker.remove();
+  });
+  leafletRuntime.markers = [];
+  if (leafletRuntime.map?.remove) leafletRuntime.map.remove();
+  leafletRuntime.map = null;
 }
 
 function loadGoogleMapsApi() {
@@ -1795,13 +2014,57 @@ function loadGoogleMapsApi() {
   return googleMapsRuntime.loaderPromise;
 }
 
+function loadLeafletAssets() {
+  if (globalThis.L?.map) return Promise.resolve(globalThis.L);
+  if (leafletRuntime.loaderPromise) return leafletRuntime.loaderPromise;
+
+  leafletRuntime.loaderPromise = new Promise((resolve, reject) => {
+    const existingStylesheet = document.querySelector('link[data-leaflet-stylesheet="true"]');
+    if (!existingStylesheet) {
+      const stylesheet = document.createElement("link");
+      stylesheet.rel = "stylesheet";
+      stylesheet.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      stylesheet.dataset.leafletStylesheet = "true";
+      document.head.appendChild(stylesheet);
+    }
+
+    const existingScript = document.querySelector('script[data-leaflet-script="true"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(globalThis.L));
+      existingScript.addEventListener("error", () => reject(new Error("Leaflet failed to load")));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.async = true;
+    script.defer = true;
+    script.dataset.leafletScript = "true";
+    script.onload = () => resolve(globalThis.L);
+    script.onerror = () => {
+      leafletRuntime.loaderPromise = null;
+      reject(new Error("Leaflet failed to load"));
+    };
+    document.head.appendChild(script);
+  });
+
+  return leafletRuntime.loaderPromise;
+}
+
 function focusAssetMarker(recordId) {
   const marker = googleMapsRuntime.markers.find((entry) => entry.assetId === recordId);
-  if (!marker || !googleMapsRuntime.map || !googleMapsRuntime.infoWindow) return;
+  if (marker && googleMapsRuntime.map && googleMapsRuntime.infoWindow) {
+    googleMapsRuntime.map.panTo(marker.getPosition());
+    googleMapsRuntime.map.setZoom(Math.max(googleMapsRuntime.map.getZoom() ?? 14, 14));
+    globalThis.google?.maps?.event?.trigger(marker, "click");
+    return;
+  }
 
-  googleMapsRuntime.map.panTo(marker.getPosition());
-  googleMapsRuntime.map.setZoom(Math.max(googleMapsRuntime.map.getZoom() ?? 14, 14));
-  globalThis.google?.maps?.event?.trigger(marker, "click");
+  const leafletMarker = leafletRuntime.markers.find((entry) => entry.assetId === recordId);
+  if (leafletMarker && leafletRuntime.map) {
+    leafletRuntime.map.setView(leafletMarker.getLatLng(), Math.max(leafletRuntime.map.getZoom() ?? 14, 14));
+    leafletMarker.openPopup();
+  }
 }
 
 async function initializeAssetMap(rows) {
@@ -1820,7 +2083,7 @@ async function initializeAssetMap(rows) {
   resetAssetMap();
   const bounds = new maps.LatLngBounds();
   googleMapsRuntime.map = new maps.Map(canvas, {
-    center: { lat: Number(mappableAssets[0].lat), lng: Number(mappableAssets[0].lng) },
+    center: { lat: getAssetLatitude(mappableAssets[0]), lng: getAssetLongitude(mappableAssets[0]) },
     zoom: 12,
     mapTypeControl: false,
     streetViewControl: false,
@@ -1831,8 +2094,21 @@ async function initializeAssetMap(rows) {
   mappableAssets.forEach((asset) => {
     const marker = new maps.Marker({
       map: googleMapsRuntime.map,
-      position: { lat: Number(asset.lat), lng: Number(asset.lng) },
+      position: { lat: getAssetLatitude(asset), lng: getAssetLongitude(asset) },
       title: String(asset.name || "Asset"),
+      label: {
+        text: getAssetMarkerLabelText(asset),
+        className: "asset-map-marker-label",
+      },
+      icon: {
+        path: maps.SymbolPath.CIRCLE,
+        scale: 7,
+        fillColor: "#111111",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+      },
+      optimized: false,
     });
     marker.assetId = asset.id;
     marker.addListener("click", () => {
@@ -1840,7 +2116,7 @@ async function initializeAssetMap(rows) {
         <div class="asset-map-info-window">
           <strong>${escapeHtml(asset.name || "Asset")}</strong>
           <div>${escapeHtml(asset.type || "Unknown type")}</div>
-          <div>${escapeHtml(asset.address || `${asset.lat}, ${asset.lng}`)}</div>
+          <div>${escapeHtml(getAssetMapAddress(asset))}</div>
         </div>
       `);
       googleMapsRuntime.infoWindow?.open({
@@ -1858,6 +2134,91 @@ async function initializeAssetMap(rows) {
   } else {
     googleMapsRuntime.map.fitBounds(bounds, 64);
   }
+
+  globalThis.setTimeout(() => {
+    if (!googleMapsRuntime.map || state.activeNav !== "assets" || state.assetsView !== "map") return;
+    globalThis.google?.maps?.event?.trigger(googleMapsRuntime.map, "resize");
+    if (mappableAssets.length === 1) {
+      googleMapsRuntime.map.setCenter(bounds.getCenter());
+      googleMapsRuntime.map.setZoom(14);
+    } else {
+      googleMapsRuntime.map.fitBounds(bounds, 64);
+    }
+  }, 250);
+
+  globalThis.setTimeout(() => {
+    const activeCanvas = document.getElementById("asset-map-canvas");
+    if (!activeCanvas || state.activeNav !== "assets" || state.assetsView !== "map") return;
+    const visibleText = String(activeCanvas.textContent ?? "").trim();
+    if (!visibleText.includes("Oops! Something went wrong.")) return;
+    initializeLeafletAssetMap(rows).catch((fallbackError) => {
+      console.error("Leaflet fallback failed after Google Maps error surface", fallbackError);
+    });
+  }, 1200);
+}
+
+async function initializeLeafletAssetMap(rows) {
+  const canvas = document.getElementById("asset-map-canvas");
+  if (!canvas || state.activeNav !== "assets" || state.assetsView !== "map") return;
+
+  const mappableAssets = getMappableAssets(rows);
+  if (!mappableAssets.length) {
+    resetAssetMap();
+    return;
+  }
+
+  const L = await loadLeafletAssets();
+  if (!document.getElementById("asset-map-canvas") || state.activeNav !== "assets" || state.assetsView !== "map") return;
+
+  resetAssetMap();
+  leafletRuntime.map = L.map(canvas, {
+    zoomControl: true,
+    attributionControl: true,
+  });
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(leafletRuntime.map);
+
+  const bounds = [];
+  mappableAssets.forEach((asset) => {
+    const marker = L.marker([getAssetLatitude(asset), getAssetLongitude(asset)], {
+      title: String(asset.name || "Asset"),
+    }).addTo(leafletRuntime.map);
+    marker.bindPopup(`
+      <div class="asset-map-info-window">
+        <strong>${escapeHtml(asset.name || "Asset")}</strong>
+        <div>${escapeHtml(asset.type || "Unknown type")}</div>
+        <div>${escapeHtml(getAssetMapAddress(asset))}</div>
+      </div>
+    `);
+    marker.bindTooltip(escapeHtml(getAssetMarkerLabelText(asset)), {
+      permanent: true,
+      direction: "top",
+      offset: [0, -14],
+      className: "asset-map-leaflet-tooltip",
+    });
+    marker.assetId = asset.id;
+    leafletRuntime.markers.push(marker);
+    bounds.push([getAssetLatitude(asset), getAssetLongitude(asset)]);
+  });
+
+  if (bounds.length === 1) {
+    leafletRuntime.map.setView(bounds[0], 14);
+  } else {
+    leafletRuntime.map.fitBounds(bounds, { padding: [48, 48] });
+  }
+
+  globalThis.setTimeout(() => {
+    if (!leafletRuntime.map || state.activeNav !== "assets" || state.assetsView !== "map") return;
+    leafletRuntime.map.invalidateSize();
+    if (bounds.length === 1) {
+      leafletRuntime.map.setView(bounds[0], 14);
+    } else {
+      leafletRuntime.map.fitBounds(bounds, { padding: [48, 48] });
+    }
+  }, 250);
 }
 
 function getRelationConfig(fieldName) {
@@ -2904,7 +3265,13 @@ function countLinks() {
 function renderMeta() {
   if (!el.mobileNavTitle) return;
   const activeItem = sidebarItems.find((item) => item.key === state.activeNav);
-  el.mobileNavTitle.textContent = activeItem?.label ?? "Dashboard";
+  const activeTable = tables.find((item) => item.key === state.activeNav) ?? null;
+  const countSuffix = activeTable
+    ? ` (${data[activeTable.key]?.length ?? 0})`
+    : state.activeNav === "admin"
+      ? ` (${userAccounts.length})`
+      : "";
+  el.mobileNavTitle.textContent = `${activeItem?.label ?? "Dashboard"}${countSuffix}`;
 }
 
 function getSidebarToggleIcon() {
@@ -4247,6 +4614,7 @@ function bindAssetMapActions(rows) {
       const nextView = button.dataset.assetsView === "map" ? "map" : "table";
       if (state.assetsView === nextView) return;
       state.assetsView = nextView;
+      state.assetMapExpanded = false;
       state.detailTableKey = null;
       state.detailRecordId = null;
       renderHeroPanel();
@@ -4254,33 +4622,6 @@ function bindAssetMapActions(rows) {
   });
 
   if (state.activeNav !== "assets" || state.assetsView !== "map") return;
-
-  document.getElementById("asset-map-key-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const input = document.getElementById("asset-map-key-input");
-    const value = input instanceof HTMLInputElement ? input.value : "";
-    persistGoogleMapsApiKey(value);
-    state.assetMapKeyEditorOpen = false;
-    googleMapsRuntime.loaderPromise = null;
-    renderHeroPanel();
-  });
-
-  document.querySelector("[data-asset-map-manage-key]")?.addEventListener("click", () => {
-    state.assetMapKeyEditorOpen = !state.assetMapKeyEditorOpen;
-    renderHeroPanel();
-  });
-
-  document.querySelector("[data-asset-map-cancel-key]")?.addEventListener("click", () => {
-    state.assetMapKeyEditorOpen = false;
-    renderHeroPanel();
-  });
-
-  document.querySelector("[data-asset-map-clear-key]")?.addEventListener("click", () => {
-    persistGoogleMapsApiKey("");
-    state.assetMapKeyEditorOpen = false;
-    googleMapsRuntime.loaderPromise = null;
-    renderHeroPanel();
-  });
 
   document.querySelectorAll("[data-asset-map-open]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -4290,23 +4631,23 @@ function bindAssetMapActions(rows) {
     });
   });
 
-  document.querySelectorAll("[data-asset-map-focus]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const recordId = button.getAttribute("data-asset-map-focus");
-      if (!recordId) return;
-      focusAssetMarker(recordId);
-    });
+  document.querySelector("[data-asset-map-expand]")?.addEventListener("click", () => {
+    state.assetMapExpanded = !state.assetMapExpanded;
+    renderHeroPanel();
   });
 
   initializeAssetMap(rows).catch((error) => {
-    const canvas = document.getElementById("asset-map-canvas");
-    if (!canvas) return;
-    canvas.outerHTML = `
-      <div class="asset-map-empty">
-        <strong>Map failed to load</strong>
-        <p>${escapeHtml(error?.message ?? "Unknown error")}</p>
-      </div>
-    `;
+    console.error("Google Maps failed, falling back to Leaflet", error);
+    initializeLeafletAssetMap(rows).catch((fallbackError) => {
+      const canvas = document.getElementById("asset-map-canvas");
+      if (!canvas) return;
+      canvas.outerHTML = `
+        <div class="asset-map-empty">
+          <strong>Map failed to load</strong>
+          <p>${escapeHtml(fallbackError?.message ?? error?.message ?? "Unknown error")}</p>
+        </div>
+      `;
+    });
   });
 }
 
@@ -4321,7 +4662,7 @@ function renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptio
   return `
     <div class="records-toolbar">
       <div class="records-toolbar-title">
-        <h2>${escapeHtml(table.title)}</h2>
+        <h2>${escapeHtml(table.title)} <span class="records-title-count">(${rows.length})</span></h2>
         <p id="records-count">${rows.length} records</p>
       </div>
       <div class="records-toolbar-search">
@@ -4368,8 +4709,22 @@ function renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptio
         </div>
         ${showAssetsViewToggle ? `
           <div class="records-view-toggle" role="tablist" aria-label="Assets views">
-            <button class="records-view-button ${state.assetsView === "table" ? "active" : ""}" type="button" data-assets-view="table">Table</button>
-            <button class="records-view-button ${state.assetsView === "map" ? "active" : ""}" type="button" data-assets-view="map">View in map</button>
+            <button class="records-view-button ${state.assetsView === "table" ? "active" : ""}" type="button" data-assets-view="table" aria-label="Table view" title="Table view">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="2"></rect>
+                <path d="M3.5 10h17"></path>
+                <path d="M9 4.5v15"></path>
+                <path d="M15 4.5v15"></path>
+              </svg>
+            </button>
+            <button class="records-view-button ${state.assetsView === "map" ? "active" : ""}" type="button" data-assets-view="map" aria-label="Map view" title="Map view">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 18 3.8 20.2A.6.6 0 0 1 3 19.64V6.4a1 1 0 0 1 .62-.92L9 3"></path>
+                <path d="M15 6 9 3v15l6 3m0-15 5.2-2.2a.6.6 0 0 1 .8.56v13.24a1 1 0 0 1-.62.92L15 21"></path>
+                <path d="M15 6v15"></path>
+                <path d="M12 11.5a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8Z"></path>
+              </svg>
+            </button>
           </div>
         ` : ""}
         <button id="new-record-button" class="new-record-button" type="button">+</button>
@@ -4382,29 +4737,28 @@ function renderAssetMapPanel(rows) {
   const mappableAssets = getMappableAssets(rows);
   const unmappedAssets = getUnmappedAssets(rows);
   const apiKey = state.googleMapsApiKey || getGoogleMapsApiKey();
-  const keyControls = apiKey ? `
-    <div class="asset-map-controls">
-      <button class="record-action-button" type="button" data-asset-map-manage-key>${state.assetMapKeyEditorOpen ? "Hide key form" : "Update API key"}</button>
-      <button class="record-action-button" type="button" data-asset-map-clear-key>Clear key</button>
+  const stageToolbar = `
+    <div class="asset-map-stage-toolbar">
+      <button class="record-action-button asset-map-expand-button" type="button" data-asset-map-expand aria-label="${state.assetMapExpanded ? "Restore map size" : "Expand map"}" title="${state.assetMapExpanded ? "Restore map size" : "Expand map"}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          ${state.assetMapExpanded
+            ? `<path d="M9 15H5v4"></path>
+               <path d="M15 9h4V5"></path>
+               <path d="M19 9l-5-5"></path>
+               <path d="M5 15l5 5"></path>`
+            : `<path d="M15 5h4v4"></path>
+               <path d="M9 19H5v-4"></path>
+               <path d="M19 5l-6 6"></path>
+               <path d="M5 19l6-6"></path>`}
+        </svg>
+      </button>
     </div>
-  ` : "";
-  const keyForm = !apiKey || state.assetMapKeyEditorOpen
-    ? `
-      <form id="asset-map-key-form" class="asset-map-key-form">
-        <input id="asset-map-key-input" class="records-search asset-map-key-input" type="password" placeholder="Paste Google Maps API key" autocomplete="off" />
-        <div class="asset-map-key-actions">
-          <button class="record-action-button asset-map-save-button" type="submit">Save key</button>
-          ${apiKey ? `<button class="record-action-button" type="button" data-asset-map-cancel-key>Edit later</button>` : `<button class="record-action-button" type="button" data-asset-map-clear-key disabled>Clear</button>`}
-        </div>
-      </form>
-    `
-    : "";
+  `;
   const mapBody = !apiKey
     ? `
       <div class="asset-map-empty">
         <strong>Google Maps API key required</strong>
-        <p>Save your key once and this view will start plotting asset pins automatically.</p>
-        ${keyForm}
+        <p>Google Maps is unavailable without a valid key. The fallback map will appear automatically when available.</p>
       </div>
     `
     : !mappableAssets.length
@@ -4412,20 +4766,17 @@ function renderAssetMapPanel(rows) {
         <div class="asset-map-empty">
           <strong>No mapped assets yet</strong>
           <p>Add valid latitude and longitude values to asset records. Assets with coordinates set to 0, 0 are ignored.</p>
-          ${keyControls}
-          ${keyForm}
         </div>
       `
       : `
         <div class="asset-map-stage-inner">
+          ${stageToolbar}
           <div id="asset-map-canvas" class="asset-map-canvas" aria-label="Asset locations map"></div>
-          ${keyControls}
-          ${keyForm}
         </div>
       `;
 
   return `
-    <div class="asset-map-shell">
+    <div class="asset-map-shell ${state.assetMapExpanded ? "is-expanded" : ""}">
       <div class="asset-map-summary">
         <article class="asset-map-stat">
           <span>Visible assets</span>
@@ -4447,7 +4798,7 @@ function renderAssetMapPanel(rows) {
         <aside class="asset-map-list">
           <div class="asset-map-list-head">
             <h3>Visible assets</h3>
-            <p>${mappableAssets.length} with coordinates</p>
+            <p>${mappableAssets.length} with coordinates and labels</p>
           </div>
           <div class="asset-map-list-body">
             ${rows.map((asset) => `
@@ -4455,11 +4806,10 @@ function renderAssetMapPanel(rows) {
                 <div class="asset-map-card-copy">
                   <strong>${escapeHtml(asset.name || "Untitled asset")}</strong>
                   <span>${escapeHtml(asset.type || "Unknown type")}</span>
-                  <span>${escapeHtml(asset.address || `${asset.lat ?? "—"}, ${asset.lng ?? "—"}`)}</span>
+                  <span>${escapeHtml(getAssetMapAddress(asset))}</span>
                 </div>
                 <div class="asset-map-card-actions">
                   <button class="record-action-button" type="button" data-asset-map-open="${escapeHtml(asset.id)}">Open</button>
-                  <button class="record-action-button" type="button" data-asset-map-focus="${escapeHtml(asset.id)}" ${hasValidAssetCoordinates(asset) ? "" : "disabled"}>Pin</button>
                 </div>
               </article>
             `).join("") || `<div class="asset-map-empty-list">No assets match the current filters.</div>`}
@@ -4559,6 +4909,7 @@ function snapshotCurrentView() {
     activeNav: state.activeNav,
     activeTable: state.activeTable,
     assetsView: state.assetsView,
+    assetMapExpanded: state.assetMapExpanded,
     detailTableKey: state.detailTableKey,
     detailRecordId: state.detailRecordId,
     detailTreeOpen: state.detailTreeOpen,
@@ -4578,11 +4929,17 @@ function restoreView(view = null) {
   state.activeNav = targetView.activeNav;
   state.activeTable = targetView.activeTable;
   state.assetsView = targetView.assetsView ?? "table";
+  state.assetMapExpanded = Boolean(targetView.assetMapExpanded);
   state.detailTableKey = targetView.detailTableKey;
   state.detailRecordId = targetView.detailRecordId;
   state.detailTreeOpen = targetView.detailTreeOpen;
   renderSidebarNav();
   renderHeroPanel();
+  if (state.activeNav === "assets" && state.assetsView === "map" && !state.detailRecordId) {
+    globalThis.requestAnimationFrame(() => {
+      globalThis.scrollTo({ top: 0, behavior: "auto" });
+    });
+  }
 }
 
 function goBackFromDetail() {
@@ -4688,7 +5045,7 @@ function renderHeroPanel() {
     el.heroPanel.innerHTML = `
       <div class="page-view page-view-admin">
         <section class="panel admin-panel">
-          <div class="panel-head">
+          <div class="panel-head admin-panel-head">
             <div>
               <h2>Admin</h2>
               <p>Create users, passwords, and access control.</p>
@@ -4798,43 +5155,73 @@ function renderDashboard() {
 }
 
 function renderAdminWorkspace() {
-  const allTableKeys = tables.map((table) => table.key);
+  const query = state.search.trim().toLowerCase();
+  const filteredUsers = userAccounts.filter((user) => {
+    if (!query) return true;
+    return [user.name, user.email, user.role, user.password]
+      .some((value) => String(value ?? "").toLowerCase().includes(query));
+  });
+
   return `
     <div class="admin-workspace">
-      <div class="admin-workspace-head">
-        <button class="new-record-button" type="button" id="add-user-button">+ Add user</button>
+      <div class="records-toolbar admin-workspace-head">
+        <div class="records-toolbar-search">
+          <input id="admin-search" class="records-search" type="search" placeholder="Search users..." value="${escapeHtml(state.search)}" />
+        </div>
+        <div class="records-toolbar-actions">
+          <button class="new-record-button" type="button" id="add-user-button">+</button>
+        </div>
       </div>
-      <div class="admin-user-list">
-        ${userAccounts.map((user) => {
-          const hasFullAccess = allTableKeys.every((tableKey) => user.table_access.includes(tableKey));
-          const accessMarkup = hasFullAccess
-            ? `<span class="admin-access-chip admin-access-chip-full">Full access</span>`
-            : user.table_access.map((tableKey) => `<span class="admin-access-chip">${escapeHtml(getTableByKey(tableKey)?.title ?? tableKey)}</span>`).join("");
-
+      <div class="records-table-wrap admin-user-table-wrap">
+        <table class="records-table admin-user-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Password</th>
+              <th>Role</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+        ${filteredUsers.map((user) => {
           return `
-            <article class="admin-user-card" data-user-id="${escapeHtml(user.id)}">
-              <div class="admin-user-main">
-                <div class="admin-user-title-row">
+            <tr data-user-id="${escapeHtml(user.id)}">
+              <td>
+                <div class="admin-user-name-cell">
                   <strong>${escapeHtml(user.name)}</strong>
-                  <span class="admin-user-role">${escapeHtml(user.role)}</span>
-                </div>
-                <div class="admin-user-meta">
                   <span>${escapeHtml(user.email)}</span>
-                  <span>${escapeHtml(user.status)}</span>
-                  <span>${escapeHtml(user.venture_scope || "All ventures")}</span>
                 </div>
-                <div class="admin-user-password">Password: ${escapeHtml(user.password)}</div>
-                <div class="admin-user-access">
-                  ${accessMarkup}
+              </td>
+              <td>${escapeHtml(user.password)}</td>
+              <td><span class="admin-user-role">${escapeHtml(user.role)}</span></td>
+              <td>
+                <div class="admin-user-actions">
+                  <button class="record-action-button admin-user-icon-button" type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}" aria-label="Edit ${escapeHtml(user.name)}" title="Edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 20h9"></path>
+                      <path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                  </button>
+                  <button class="record-action-button admin-user-icon-button" type="button" data-user-action="delete" data-user-id="${escapeHtml(user.id)}" aria-label="Delete ${escapeHtml(user.name)}" title="Delete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M3 6h18"></path>
+                      <path d="M8 6V4h8v2"></path>
+                      <path d="M19 6l-1 14H6L5 6"></path>
+                      <path d="M10 11v6"></path>
+                      <path d="M14 11v6"></path>
+                    </svg>
+                  </button>
                 </div>
-              </div>
-              <div class="admin-user-actions">
-                <button class="record-action-button" type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}">Edit</button>
-                <button class="record-action-button" type="button" data-user-action="delete" data-user-id="${escapeHtml(user.id)}">Delete</button>
-              </div>
-            </article>
+              </td>
+            </tr>
           `;
-        }).join("")}
+        }).join("") || `
+          <tr>
+            <td colspan="4" class="admin-user-empty">No users found.</td>
+          </tr>
+        `}
+          </tbody>
+        </table>
       </div>
     </div>
   `;
@@ -4843,6 +5230,12 @@ function renderAdminWorkspace() {
 function bindAdminWorkspaceEvents() {
   document.getElementById("add-user-button")?.addEventListener("click", () => {
     openAdminUserForm();
+  });
+
+  document.getElementById("admin-search")?.addEventListener("input", (event) => {
+    state.search = event.target.value;
+    renderHeroPanel();
+    bindAdminWorkspaceEvents();
   });
 
   document.querySelectorAll("[data-user-action]").forEach((button) => {
@@ -5564,13 +5957,14 @@ async function saveRecord() {
 
   const payload = buildRecordFromForm(table);
   let nextRecord = null;
+  let syncPromise = Promise.resolve();
 
   if (state.modalMode === "edit" && state.editingRecordId) {
     const index = data[table.key].findIndex((item) => item.id === state.editingRecordId);
     if (index >= 0) {
       nextRecord = { ...data[table.key][index], ...payload };
-      await syncRecordToSupabase(table.key, nextRecord);
       data[table.key][index] = nextRecord;
+      syncPromise = syncRecordToSupabase(table.key, nextRecord);
     }
   } else {
     nextRecord = {
@@ -5578,12 +5972,17 @@ async function saveRecord() {
       createdAt: new Date().toISOString(),
       ...payload,
     };
-    await syncRecordToSupabase(table.key, nextRecord);
     data[table.key].unshift(nextRecord);
+    syncPromise = syncRecordToSupabase(table.key, nextRecord);
   }
 
+  persistLocalTableCache();
   closeForm();
   renderAll();
+  syncPromise.catch((error) => {
+    console.error("Background sync failed", error);
+    window.alert(`Saved locally. Supabase sync failed: ${error?.message ?? "Unknown error"}`);
+  });
 }
 
 function saveAdminUser() {
@@ -5631,6 +6030,7 @@ async function deleteRecord(tableKey, recordId) {
   if (!approved) return false;
   await removeRecordFromSupabase(tableKey, recordId);
   data[tableKey] = data[tableKey].filter((item) => item.id !== recordId);
+  persistLocalTableCache();
   renderAll();
   return true;
 }
@@ -5840,9 +6240,11 @@ async function init() {
   }
   if (state.isAuthenticated) showAppShell();
   else renderLoginScreen("");
+  applyLocalTableCache();
   renderAll();
   hydrateDataFromSupabase()
     .then(() => {
+      applyLocalTableCache();
       renderAll();
     })
     .catch((error) => {
