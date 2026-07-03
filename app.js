@@ -2018,6 +2018,47 @@ function shouldUseLeafletMapFirst() {
   return host === "127.0.0.1" || host === "localhost";
 }
 
+function getAssetMapCenterPosition() {
+  if (googleMapsRuntime.map?.getCenter) {
+    const center = googleMapsRuntime.map.getCenter();
+    const lat = typeof center?.lat === "function" ? center.lat() : center?.lat;
+    const lng = typeof center?.lng === "function" ? center.lng() : center?.lng;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+
+  if (leafletRuntime.map?.getCenter) {
+    const center = leafletRuntime.map.getCenter();
+    const lat = Number(center?.lat);
+    const lng = Number(center?.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+
+  const googleMarker = googleMapsRuntime.markers[0];
+  if (googleMarker?.getPosition) {
+    const position = googleMarker.getPosition();
+    const lat = typeof position?.lat === "function" ? position.lat() : position?.lat;
+    const lng = typeof position?.lng === "function" ? position.lng() : position?.lng;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+
+  const leafletMarker = leafletRuntime.markers[0];
+  if (leafletMarker?.getLatLng) {
+    const position = leafletMarker.getLatLng();
+    const lat = Number(position?.lat);
+    const lng = Number(position?.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+
+  return null;
+}
+
+function openAssetStreetView() {
+  const position = getAssetMapCenterPosition();
+  if (!position) return;
+  const streetViewUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${encodeURIComponent(`${position.lat},${position.lng}`)}`;
+  window.open(streetViewUrl, "_blank", "noopener,noreferrer");
+}
+
 function createLeafletAssetIcon(L, color = "#2f6fb1") {
   return L.divIcon({
     className: "asset-map-leaflet-marker-wrap",
@@ -2213,10 +2254,11 @@ async function initializeAssetMap(rows) {
     center: { lat: getAssetLatitude(mappableAssets[0]), lng: getAssetLongitude(mappableAssets[0]) },
     zoom: 12,
     mapTypeControl: false,
-    streetViewControl: false,
+    streetViewControl: true,
     fullscreenControl: false,
     gestureHandling: "greedy",
     draggable: true,
+    mapTypeId: "satellite",
   });
   googleMapsRuntime.infoWindow = new maps.InfoWindow();
 
@@ -2249,9 +2291,9 @@ async function initializeAssetMap(rows) {
 
   if (mappableAssets.length === 1) {
     googleMapsRuntime.map.setCenter(bounds.getCenter());
-    googleMapsRuntime.map.setZoom(14);
+    googleMapsRuntime.map.setZoom(17);
   } else {
-    googleMapsRuntime.map.fitBounds(bounds, 64);
+    googleMapsRuntime.map.fitBounds(bounds, 56);
   }
 
   globalThis.setTimeout(() => {
@@ -2259,9 +2301,9 @@ async function initializeAssetMap(rows) {
     globalThis.google?.maps?.event?.trigger(googleMapsRuntime.map, "resize");
     if (mappableAssets.length === 1) {
       googleMapsRuntime.map.setCenter(bounds.getCenter());
-      googleMapsRuntime.map.setZoom(14);
+      googleMapsRuntime.map.setZoom(17);
     } else {
-      googleMapsRuntime.map.fitBounds(bounds, 64);
+      googleMapsRuntime.map.fitBounds(bounds, 56);
     }
   }, 250);
 
@@ -2312,9 +2354,9 @@ async function initializeLeafletAssetMap(rows) {
     tap: true,
   });
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors',
+    attribution: '&copy; Esri, Earthstar Geographics, and the GIS User Community',
   }).addTo(leafletRuntime.map);
 
   const bounds = [];
@@ -2343,18 +2385,18 @@ async function initializeLeafletAssetMap(rows) {
   });
 
   if (bounds.length === 1) {
-    leafletRuntime.map.setView(bounds[0], 14);
+    leafletRuntime.map.setView(bounds[0], 17);
   } else {
-    leafletRuntime.map.fitBounds(bounds, { padding: [48, 48] });
+    leafletRuntime.map.fitBounds(bounds, { padding: [56, 56] });
   }
 
   globalThis.setTimeout(() => {
     if (!leafletRuntime.map || state.activeNav !== "assets" || state.assetsView !== "map" || renderToken !== state.assetMapRenderToken) return;
     leafletRuntime.map.invalidateSize();
     if (bounds.length === 1) {
-      leafletRuntime.map.setView(bounds[0], 14);
+      leafletRuntime.map.setView(bounds[0], 17);
     } else {
-      leafletRuntime.map.fitBounds(bounds, { padding: [48, 48] });
+      leafletRuntime.map.fitBounds(bounds, { padding: [56, 56] });
     }
     setAssetMapLoading(false);
   }, 250);
@@ -4810,6 +4852,10 @@ function bindAssetMapActions(rows) {
     });
   });
 
+  document.querySelector("[data-asset-map-street-view]")?.addEventListener("click", () => {
+    openAssetStreetView();
+  });
+
   if (state.activeNav !== "assets" || state.assetsView !== "map") return;
 
   document.querySelectorAll("[data-asset-map-open]").forEach((button) => {
@@ -4941,6 +4987,10 @@ function renderAssetMapPanel(rows) {
   const apiKey = state.googleMapsApiKey || getGoogleMapsApiKey();
   const stageToolbar = `
     <div class="asset-map-stage-toolbar">
+      <div class="asset-map-type-badge" aria-label="Satellite view">Satellite</div>
+      <button class="record-action-button asset-map-street-view-button" type="button" data-asset-map-street-view aria-label="Street View" title="Street View">
+        Street View
+      </button>
       <button class="record-action-button asset-map-expand-button" type="button" data-asset-map-expand aria-label="${state.assetMapExpanded ? "Restore map size" : "Expand map"}" title="${state.assetMapExpanded ? "Restore map size" : "Expand map"}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           ${state.assetMapExpanded
