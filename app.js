@@ -1781,6 +1781,21 @@ function mapRecordFromSupabase(tableKey, row) {
   };
 }
 
+function hydrateDocumentRelationFieldsFromLinks() {
+  data.documents = (data.documents ?? []).map((record) => {
+    const relatedAssets = getLinkedRecordsFromDocumentLinks(record, "assets").map((row) => String(row?.name ?? "").trim()).filter(Boolean);
+    const relatedEvents = getLinkedRecordsFromDocumentLinks(record, "events").map((row) => String(row?.title ?? "").trim()).filter(Boolean);
+    const relatedTransactions = getLinkedRecordsFromDocumentLinks(record, "transactions").map((row) => String(row?.reference ?? "").trim()).filter(Boolean);
+
+    return {
+      ...record,
+      related_assets: relatedAssets,
+      related_events: relatedEvents,
+      related_transactions: relatedTransactions,
+    };
+  });
+}
+
 async function hydrateDataFromSupabase() {
   if (!supabaseClient) {
     throw new Error("Supabase client unavailable on window");
@@ -1801,6 +1816,7 @@ async function hydrateDataFromSupabase() {
   entries.forEach(([tableKey, rows]) => {
     data[tableKey] = rows;
   });
+  hydrateDocumentRelationFieldsFromLinks();
 }
 
 function cloneRows(rows) {
@@ -2638,6 +2654,45 @@ function getLinkedDocumentsForRecord(targetTableKey, value) {
   });
 }
 
+function getLinkedRecordsFromDocumentLinks(documentRecord, targetTableKey) {
+  const linkValues = Array.isArray(documentRecord?.links)
+    ? documentRecord.links.map((value) => String(value ?? "").trim()).filter(Boolean)
+    : [];
+  if (!linkValues.length) return [];
+
+  return (data[targetTableKey] ?? []).filter((row) => {
+    const label = String(getRecordLabel(targetTableKey, row) ?? "").trim();
+    return label && linkValues.includes(label);
+  });
+}
+
+function getLinkedTransactionsForAsset(assetValue) {
+  const normalizedAsset = String(assetValue ?? "").trim();
+  if (!normalizedAsset) return [];
+  return (data.transactions ?? []).filter((row) => String(row?.project_asset ?? "").trim() === normalizedAsset);
+}
+
+function getLinkedDocumentsForTransactions(transactionRows = []) {
+  const documentMap = new Map();
+  transactionRows.forEach((row) => {
+    const documentValues = Array.isArray(row?.documents) ? row.documents : [];
+    documentValues.forEach((value) => {
+      const normalized = String(value ?? "").trim();
+      if (!normalized || documentMap.has(normalized)) return;
+      const documentRow = (data.documents ?? []).find((item) => {
+        const candidates = [item?.id, item?.title, item?.reference, item?.name]
+          .map((entry) => String(entry ?? "").trim())
+          .filter(Boolean);
+        return candidates.includes(normalized);
+      }) ?? null;
+      if (documentRow) {
+        documentMap.set(normalized, documentRow);
+      }
+    });
+  });
+  return Array.from(documentMap.values());
+}
+
 function getLinkedTransactionsForDocument(documentRecord) {
   const documentTokens = [
     documentRecord?.id,
@@ -2650,10 +2705,14 @@ function getLinkedTransactionsForDocument(documentRecord) {
 
   if (!documentTokens.length) return [];
 
-  return (data.transactions ?? []).filter((row) => {
+  const matchedTransactions = (data.transactions ?? []).filter((row) => {
     const documentValues = Array.isArray(row?.documents) ? row.documents : [];
     return documentValues.some((value) => documentTokens.includes(String(value ?? "").trim()));
   });
+  const fromLinks = getLinkedRecordsFromDocumentLinks(documentRecord, "transactions");
+  return Array.from(new Map(
+    [...matchedTransactions, ...fromLinks].map((row) => [String(row?.id ?? ""), row]),
+  ).values());
 }
 
 function getLinkedAssetsForDocument(documentRecord) {
@@ -2667,9 +2726,30 @@ function getLinkedAssetsForDocument(documentRecord) {
   };
 
   (Array.isArray(documentRecord?.related_assets) ? documentRecord.related_assets : []).forEach(addAsset);
+  getLinkedRecordsFromDocumentLinks(documentRecord, "assets").forEach((row) => addAsset(row.name));
   getLinkedTransactionsForDocument(documentRecord).forEach((row) => addAsset(row.project_asset));
 
   return Array.from(assetMap.values());
+}
+
+function getLinkedEventsForDocument(documentRecord) {
+  const eventMap = new Map();
+  const addEvent = (row) => {
+    const eventId = String(row?.id ?? "").trim();
+    if (!eventId || eventMap.has(eventId)) return;
+    eventMap.set(eventId, row);
+  };
+
+  (Array.isArray(documentRecord?.related_events) ? documentRecord.related_events : [])
+    .forEach((value) => {
+      const normalized = String(value ?? "").trim();
+      if (!normalized) return;
+      const eventRow = (data.events ?? []).find((row) => String(row?.title ?? "").trim() === normalized) ?? null;
+      if (eventRow) addEvent(eventRow);
+    });
+  getLinkedRecordsFromDocumentLinks(documentRecord, "events").forEach(addEvent);
+
+  return Array.from(eventMap.values());
 }
 
 function getRecordReferenceLabel(tableKey, row) {
@@ -2827,9 +2907,24 @@ function getRecordConnections(tableKey, record) {
       })
       .filter(Boolean);
     addConnection("ventures", ownerItems, "ventures", "context");
+    const linkedTransactions = getLinkedTransactionsForAsset(rowLabel);
+    addConnection(
+      "transactions",
+      linkedTransactions.map((item) => ({
+        label: getRecordReferenceLabel("transactions", item),
+        tableKey: "transactions",
+        id: item.id,
+        row: item,
+      })),
+      "transactions",
+      "linked",
+    );
     addConnection(
       "documents",
-      getLinkedDocumentsForRecord("assets", rowLabel).map((item) => ({
+      [
+        ...getLinkedDocumentsForRecord("assets", rowLabel),
+        ...getLinkedDocumentsForTransactions(linkedTransactions),
+      ].map((item) => ({
         label: getRecordReferenceLabel("documents", item),
         tableKey: "documents",
         id: item.id,
@@ -3025,6 +3120,17 @@ function getRecordConnections(tableKey, record) {
         row: item,
       })),
       "assets",
+      "linked",
+    );
+    addConnection(
+      "events",
+      getLinkedEventsForDocument(row).map((item) => ({
+        label: getRecordReferenceLabel("events", item),
+        tableKey: "events",
+        id: item.id,
+        row: item,
+      })),
+      "events",
       "linked",
     );
     addConnection(
@@ -3513,6 +3619,7 @@ function renderDetailTree(tableKey, record) {
 function getExpandedLinkedGroups(tableKey, record) {
   const root = buildHierarchyTree(tableKey, record) ?? buildConnectionTree(tableKey, record);
   if (!root) return [];
+  const rootKey = root.id ? `${root.tableKey}:${root.id}` : "";
 
   const grouped = new Map();
   const seen = new Set();
@@ -3526,6 +3633,10 @@ function getExpandedLinkedGroups(tableKey, record) {
 
     if (!node.isRoot && node.id) {
       const itemKey = `${node.tableKey}:${node.id}`;
+      if (itemKey === rootKey) {
+        node.children?.forEach(visit);
+        return;
+      }
       if (!seen.has(itemKey)) {
         seen.add(itemKey);
         if (!grouped.has(node.tableKey)) grouped.set(node.tableKey, []);
