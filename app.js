@@ -1197,26 +1197,32 @@ const userAccounts = [
     status: "Active",
     venture_scope: "All ventures",
     table_access: tables.map((table) => table.key),
+    createdAt: "2026-06-01T09:00:00.000Z",
+    createdBy: "System",
   },
   {
     id: "usr_2",
     name: "Dev Malik",
     email: "dev@atit.com",
-    password: "atit1234",
+    password: "dev1234",
     role: "Founder",
     status: "Active",
     venture_scope: "ATIT",
     table_access: ["ventures", "people", "projects", "tasks", "documents", "events", "transactions"],
+    createdAt: "2026-06-01T09:01:00.000Z",
+    createdBy: "System",
   },
   {
     id: "usr_3",
     name: "Meera Sethi",
     email: "meera@atit.com",
-    password: "atit1234",
+    password: "meera1234",
     role: "Employee",
     status: "Active",
     venture_scope: "ATIT",
     table_access: ["projects", "tasks", "documents", "events", "assets"],
+    createdAt: "2026-06-01T09:02:00.000Z",
+    createdBy: "System",
   },
 ];
 
@@ -1248,18 +1254,59 @@ function setStoredAuthState(value) {
   else globalThis.sessionStorage?.removeItem(APP_SESSION_KEY);
 }
 
-function getUserByPassword(password) {
-  const normalized = String(password ?? "").trim();
-  if (!normalized) return null;
-  return userAccounts.find((user) => String(user.password ?? "").trim() === normalized) ?? null;
+function setStoredAuthUser(user) {
+  try {
+    if (user?.id) globalThis.sessionStorage?.setItem(APP_SESSION_USER_KEY, String(user.id));
+    else globalThis.sessionStorage?.removeItem(APP_SESSION_USER_KEY);
+  } catch {
+    // Ignore storage failures and keep runtime state.
+  }
 }
 
-function validateUniquePasswords() {
+function getStoredAuthUser() {
+  const userId = String(globalThis.sessionStorage?.getItem(APP_SESSION_USER_KEY) ?? "").trim();
+  if (!userId) return null;
+  return userAccounts.find((user) => String(user.id ?? "") === userId) ?? null;
+}
+
+function getUserByPassword(password) {
+  const normalized = String(password ?? "").trim().toLowerCase();
+  if (!normalized) return null;
+  return userAccounts.find((user) => String(user.password ?? "").trim().toLowerCase() === normalized) ?? null;
+}
+
+function getPasswordMatches(password, excludeUserId = null) {
+  const normalized = String(password ?? "").trim().toLowerCase();
+  if (!normalized) return [];
+  return userAccounts.filter((user) => {
+    if (excludeUserId && String(user.id ?? "") === String(excludeUserId)) return false;
+    return String(user.password ?? "").trim().toLowerCase() === normalized;
+  });
+}
+
+function validateUniquePasswords(excludeUserId = null) {
+  const seen = new Map();
+  for (const user of userAccounts) {
+    if (excludeUserId && String(user.id ?? "") === String(excludeUserId)) continue;
+    const password = String(user.password ?? "").trim().toLowerCase();
+    if (!password) continue;
+    const users = seen.get(password) ?? [];
+    users.push(user);
+    seen.set(password, users);
+  }
+
+  for (const [password, users] of seen.entries()) {
+    if (users.length > 1) {
+      return { valid: false, password, users: users.map((user) => user.name || user.email || user.id) };
+    }
+  }
+
   return { valid: true, password: "", users: [] };
 }
 
 const state = {
   role: "Founder",
+  currentUser: null,
   projectId: "prj_1",
   taskId: "tsk_1",
   search: "",
@@ -1278,6 +1325,7 @@ const state = {
   detailTableKey: null,
   detailRecordId: null,
   detailTreeOpen: false,
+  detailTreeScroll: null,
   detailHistory: [],
   recordFilters: {},
   taskExpanded: {},
@@ -1291,9 +1339,16 @@ const state = {
 
 const el = {};
 let confirmResolve = null;
+let remoteRefreshTimeoutId = null;
+let remoteRefreshPromise = null;
+let remoteRealtimeChannel = null;
+let remoteRefreshIntervalId = null;
 const MOBILE_BREAKPOINT = 820;
 const GOOGLE_MAPS_API_KEY_STORAGE_KEY = "atit.googleMapsApiKey";
 const LOCAL_TABLE_CACHE_STORAGE_KEY = "atit.localTableCache";
+const APP_SESSION_USER_KEY = "atit.appUserId";
+const REMOTE_REFRESH_DEBOUNCE_MS = 350;
+const REMOTE_REFRESH_INTERVAL_MS = 5000;
 const googleMapsRuntime = {
   loaderPromise: null,
   map: null,
@@ -1343,14 +1398,14 @@ const jsonColumnDefaults = {
 };
 
 const remoteTableColumns = {
-  ventures: ["id", "name", "type", "status", "lead", "primary_contact", "verticals", "founded", "hq", "website", "notes", "tags", "created_at"],
-  people: ["id", "name", "email", "phone", "venture", "role", "type", "status", "location", "timezone", "notes", "created_at"],
-  projects: ["id", "name", "venture", "status", "lead", "target_date", "budget", "summary", "priority", "created_at"],
+  ventures: ["id", "name", "date", "type", "status", "verticals", "entity_form", "reg_no", "primary_contact", "tags", "created_at"],
+  people: ["id", "name", "email", "phone", "venture", "type", "role_title", "status", "access_level", "created_at"],
+  projects: ["id", "name", "venture", "vertical", "type", "asset", "stage", "status", "start_date", "target_date", "lead", "client_shareable", "created_at"],
   tasks: ["id", "title", "venture", "project", "parent_task", "status", "priority", "owner", "assignees", "depends_on", "due_date", "estimate", "time_logged", "external_shared_with", "created_at"],
   documents: ["id", "title", "date", "venture", "project", "task", "type", "body", "file_ref", "version", "status", "links", "permission", "tags", "created_at"],
-  assets: ["id", "name", "type", "status", "venture", "project", "task", "address", "lat", "lng", "area", "unit", "owner_ventures", "date", "notes", "created_at"],
-  events: ["id", "title", "type", "venture", "project", "task", "date", "start", "duration", "location", "participants", "notes", "created_at"],
-  transactions: ["id", "reference", "direction", "status", "venture", "project_asset", "counterparty", "amount", "currency", "due_date", "documents", "notes", "created_at"],
+  assets: ["id", "name", "date", "venture", "project", "task", "type", "address", "lat", "lng", "area", "unit", "owner_ventures", "status", "created_at"],
+  events: ["id", "title", "type", "venture", "project", "task", "date", "start", "end", "participants", "location", "summary", "calendar_ref", "created_at"],
+  transactions: ["id", "reference", "venture", "project", "task", "direction", "amount", "currency", "status", "counterparty", "project_asset", "due_date", "documents", "created_at"],
 };
 
 const sidebarItems = [
@@ -1748,21 +1803,96 @@ async function hydrateDataFromSupabase() {
   });
 }
 
-async function syncRecordToSupabase(tableKey, record) {
+function cloneRows(rows) {
+  if (typeof structuredClone === "function") {
+    return structuredClone(rows);
+  }
+  return JSON.parse(JSON.stringify(rows));
+}
+
+async function syncRecordToSupabase(tableKey, record, { mode = "upsert" } = {}) {
   if (!REMOTE_TABLE_KEYS.has(tableKey) || !supabaseClient) return;
   const payload = mapRecordToSupabase(tableKey, record);
-  const hasExistingRecord = data[tableKey]?.some((item) => item.id === record.id);
-  const query = hasExistingRecord
-    ? supabaseClient.from(tableKey).update(payload).eq("id", record.id)
-    : supabaseClient.from(tableKey).insert(payload);
-  const { error } = await query;
+  let query = null;
+
+  if (mode === "insert") {
+    query = supabaseClient.from(tableKey).insert(payload).select();
+  } else if (mode === "update") {
+    query = supabaseClient.from(tableKey).update(payload).eq("id", record.id).select();
+  } else {
+    const hasExistingRecord = data[tableKey]?.some((item) => item.id === record.id);
+    query = hasExistingRecord
+      ? supabaseClient.from(tableKey).update(payload).eq("id", record.id).select()
+      : supabaseClient.from(tableKey).insert(payload).select();
+  }
+
+  const { data: rows, error } = await query;
   if (error) throw error;
+  const syncedRow = Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
+  return syncedRow ? mapRecordFromSupabase(tableKey, syncedRow) : null;
 }
 
 async function removeRecordFromSupabase(tableKey, recordId) {
   if (!REMOTE_TABLE_KEYS.has(tableKey) || !supabaseClient) return;
   const { error } = await supabaseClient.from(tableKey).delete().eq("id", recordId);
   if (error) throw error;
+}
+
+async function refreshRemoteData({ syncHierarchy = false, render = true } = {}) {
+  if (!supabaseClient) return false;
+  if (!remoteRefreshPromise) {
+    remoteRefreshPromise = hydrateDataFromSupabase()
+      .then(() => {
+        if (syncHierarchy) normalizeAllHierarchyData({ sync: true });
+        else normalizeAllHierarchyData();
+        persistLocalTableCache();
+        if (render) renderAll();
+        return true;
+      })
+      .finally(() => {
+        remoteRefreshPromise = null;
+      });
+  }
+  return remoteRefreshPromise;
+}
+
+function scheduleRemoteRefresh(options = {}) {
+  if (!supabaseClient) return;
+  globalThis.clearTimeout(remoteRefreshTimeoutId);
+  remoteRefreshTimeoutId = globalThis.setTimeout(() => {
+    refreshRemoteData(options).catch((error) => {
+      console.error("Scheduled Supabase refresh failed", error);
+    });
+  }, REMOTE_REFRESH_DEBOUNCE_MS);
+}
+
+function setupSupabaseLiveSync() {
+  if (!supabaseClient || remoteRealtimeChannel || typeof supabaseClient.channel !== "function") return;
+
+  let channel = supabaseClient.channel("atit-live-sync");
+  tables.forEach((table) => {
+    channel = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: table.key },
+      () => {
+        scheduleRemoteRefresh({ syncHierarchy: true });
+      },
+    );
+  });
+
+  remoteRealtimeChannel = channel.subscribe((status) => {
+    if (status === "CHANNEL_ERROR") {
+      console.warn("Supabase realtime subscription failed; falling back to fetch refreshes.");
+    }
+  });
+}
+
+function setupRemoteRefreshPolling() {
+  if (!supabaseClient || remoteRefreshIntervalId) return;
+  remoteRefreshIntervalId = globalThis.setInterval(() => {
+    if (!state.isAuthenticated || document.visibilityState !== "visible") return;
+    scheduleRemoteRefresh({ syncHierarchy: true, render: true });
+  }, REMOTE_REFRESH_INTERVAL_MS);
 }
 
 function getRecordFilterState(tableKey) {
@@ -1852,11 +1982,15 @@ function getFilteredAndSortedRows(table) {
       if (![...projectValues, ...linkedProjectValues].includes(filters.project)) return false;
     }
 
-    if (table.key === "documents" && filters.type !== "all") {
+    if ((table.key === "documents" || table.key === "events") && filters.type !== "all") {
       if (String(row.type || "") !== filters.type) return false;
     }
 
     if (table.key === "documents" && filters.status !== "all") {
+      if (String(row.status || "") !== filters.status) return false;
+    }
+
+    if (table.key === "assets" && filters.status !== "all") {
       if (String(row.status || "") !== filters.status) return false;
     }
 
@@ -1865,6 +1999,7 @@ function getFilteredAndSortedRows(table) {
 
   rows = rows.slice().sort((left, right) => {
     const diff = getRecordAddedAt(right) - getRecordAddedAt(left);
+    if (table.key === "assets") return diff;
     return filters.order === "oldest" ? -diff : diff;
   });
 
@@ -2441,6 +2576,11 @@ function getRelationOptions(fieldName, currentTableKey, record = null) {
           return String(row.venture ?? "") === hierarchy.venture;
         }
 
+        if (currentTableKey === "tasks" && (fieldName === "parent_task" || fieldName === "depends_on")) {
+          if (!hierarchy.project) return false;
+          return String(row.project ?? "") === hierarchy.project;
+        }
+
         if (hierarchyAttachmentTables.has(currentTableKey) && fieldName === "project") {
           if (!hierarchy.venture) return false;
           return String(row.venture ?? "") === hierarchy.venture;
@@ -2496,6 +2636,40 @@ function getLinkedDocumentsForRecord(targetTableKey, value) {
     if (Array.isArray(fieldValue)) return fieldValue.map(String).includes(String(value));
     return false;
   });
+}
+
+function getLinkedTransactionsForDocument(documentRecord) {
+  const documentTokens = [
+    documentRecord?.id,
+    documentRecord?.reference,
+    documentRecord?.title,
+    documentRecord?.name,
+  ]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
+  if (!documentTokens.length) return [];
+
+  return (data.transactions ?? []).filter((row) => {
+    const documentValues = Array.isArray(row?.documents) ? row.documents : [];
+    return documentValues.some((value) => documentTokens.includes(String(value ?? "").trim()));
+  });
+}
+
+function getLinkedAssetsForDocument(documentRecord) {
+  const assetMap = new Map();
+  const addAsset = (value) => {
+    const normalized = String(value ?? "").trim();
+    if (!normalized || assetMap.has(normalized)) return;
+    const assetRow = data.assets.find((item) => String(item.name ?? "").trim() === normalized) ?? null;
+    if (!assetRow) return;
+    assetMap.set(normalized, assetRow);
+  };
+
+  (Array.isArray(documentRecord?.related_assets) ? documentRecord.related_assets : []).forEach(addAsset);
+  getLinkedTransactionsForDocument(documentRecord).forEach((row) => addAsset(row.project_asset));
+
+  return Array.from(assetMap.values());
 }
 
 function getRecordReferenceLabel(tableKey, row) {
@@ -2841,6 +3015,31 @@ function getRecordConnections(tableKey, record) {
     );
   }
 
+  if (tableKey === "documents") {
+    addConnection(
+      "assets",
+      getLinkedAssetsForDocument(row).map((item) => ({
+        label: getRecordReferenceLabel("assets", item),
+        tableKey: "assets",
+        id: item.id,
+        row: item,
+      })),
+      "assets",
+      "linked",
+    );
+    addConnection(
+      "transactions",
+      getLinkedTransactionsForDocument(row).map((item) => ({
+        label: getRecordReferenceLabel("transactions", item),
+        tableKey: "transactions",
+        id: item.id,
+        row: item,
+      })),
+      "transactions",
+      "linked",
+    );
+  }
+
   return normalizeConnections(connections);
 }
 
@@ -2905,6 +3104,60 @@ function createTreeLeafNode(tableKey, row, label = null) {
   };
 }
 
+function createTreeRecordNode(tableKey, row, children = [], options = {}) {
+  return {
+    id: row?.id ?? null,
+    tableKey,
+    label: options.label || getRecordLabel(tableKey, row),
+    iconKey: options.iconKey || tableKey,
+    toneClass: options.toneClass ?? getTreeNodeToneClass(tableKey, row),
+    isRoot: Boolean(options.isRoot),
+    children,
+  };
+}
+
+function createTreeGroup(label, children) {
+  if (!children?.length) return null;
+  return {
+    isGroup: true,
+    label,
+    children,
+  };
+}
+
+function getRecordActionIcon(action) {
+  if (action === "edit") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20h9"></path>
+        <path d="m16.5 3.5 4 4L7 21l-4 1 1-4L16.5 3.5z"></path>
+      </svg>
+    `;
+  }
+
+  if (action === "delete") {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18"></path>
+        <path d="M8 6V4h8v2"></path>
+        <path d="M19 6l-1 14H6L5 6"></path>
+        <path d="M10 11v6"></path>
+        <path d="M14 11v6"></path>
+      </svg>
+    `;
+  }
+
+  return "";
+}
+
+function renderRecordActionIconButton(action, label, attrs = "") {
+  return `
+    <button class="record-action-button record-action-icon-button" type="button" ${attrs} aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">
+      ${getRecordActionIcon(action)}
+    </button>
+  `;
+}
+
 function getTaskPeopleTreeNodes(taskRow) {
   const nodes = [
     taskRow.owner
@@ -2932,238 +3185,227 @@ function getTaskPeopleTreeNodes(taskRow) {
   });
 }
 
-function getStructuredLeafNodes(tableKey, rows) {
-  return rows.map((row) => createTreeLeafNode(tableKey, row, getRecordReferenceLabel(tableKey, row)));
+function getTaskParentRow(taskRow) {
+  const parentTitle = String(taskRow?.parent_task ?? "").trim();
+  if (!parentTitle) return null;
+  return data.tasks.find((item) => String(item.title ?? "").trim() === parentTitle) ?? null;
 }
 
-function pushStructuredGroup(children, label, tableKey, rows) {
-  const nodes = getStructuredLeafNodes(tableKey, rows);
-  if (!nodes.length) return;
-  children.push({
-    isGroup: true,
-    label,
-    children: nodes,
+function getTaskAncestorChain(taskRow) {
+  if (!taskRow) return [];
+  const chain = [];
+  const seen = new Set();
+  let current = taskRow;
+
+  while (current && !seen.has(current.id)) {
+    chain.unshift(current);
+    seen.add(current.id);
+    current = getTaskParentRow(current);
+  }
+
+  return chain;
+}
+
+function getHierarchyAttachmentRowsForLevel(tableKey, level, levelRecord) {
+  const rows = data[tableKey] ?? [];
+  if (level === "task") {
+    const taskTitle = String(levelRecord?.title ?? "").trim();
+    return rows.filter((item) => String(item?.task ?? "").trim() === taskTitle);
+  }
+
+  if (level === "project") {
+    const projectName = String(levelRecord?.name ?? "").trim();
+    return rows.filter((item) => {
+      if (String(item?.project ?? "").trim() !== projectName) return false;
+      return !String(item?.task ?? "").trim();
+    });
+  }
+
+  if (level === "venture") {
+    const ventureName = String(levelRecord?.name ?? "").trim();
+    return rows.filter((item) => {
+      if (String(item?.venture ?? "").trim() !== ventureName) return false;
+      return !String(item?.project ?? "").trim() && !String(item?.task ?? "").trim();
+    });
+  }
+
+  return [];
+}
+
+function createAttachmentGroup(tableKey, rows) {
+  return createTreeGroup(
+    getTableByKey(tableKey)?.title ?? titleCaseKey(tableKey),
+    rows.map((row) => createTreeLeafNode(tableKey, row, getRecordReferenceLabel(tableKey, row))),
+  );
+}
+
+function getFocusedAttachmentConnectionGroups(tableKey, row) {
+  const hiddenKeys = new Set(["ventures", "projects", "tasks"]);
+  return getRecordConnections(tableKey, row)
+    .filter((connection) => !hiddenKeys.has(String(connection.key ?? "").trim()));
+}
+
+function buildFocusedAttachmentSubtree(tableKey, row) {
+  if (!row) return null;
+  const children = getFocusedAttachmentConnectionGroups(tableKey, row)
+    .map((connection) => createTreeGroup(
+      connection.label,
+      connection.items.map((item) => createTreeLeafNode(item.tableKey, item.row, item.label)),
+    ))
+    .filter(Boolean);
+
+  return createTreeRecordNode(tableKey, row, children);
+}
+
+function appendFocusedAttachmentNode(children, onlyRecord) {
+  if (!onlyRecord?.tableKey || !onlyRecord?.row) return;
+  const attachmentNode = buildFocusedAttachmentSubtree(onlyRecord.tableKey, onlyRecord.row);
+  const table = getTableByKey(onlyRecord.tableKey);
+  const group = createTreeGroup(table?.title ?? titleCaseKey(onlyRecord.tableKey), attachmentNode ? [attachmentNode] : []);
+  if (group) children.push(group);
+}
+
+function appendHierarchyLevelAttachments(children, level, levelRecord, options = {}) {
+  ["assets", "events", "documents", "transactions"].forEach((tableKey) => {
+    const rows = options.onlyRecord && options.onlyRecord.tableKey === tableKey
+      ? [options.onlyRecord.row]
+      : getHierarchyAttachmentRowsForLevel(tableKey, level, levelRecord);
+    const group = createAttachmentGroup(tableKey, rows);
+    if (group) children.push(group);
   });
 }
 
-function buildStructuredTaskNode(taskRow, options = {}) {
+function buildHierarchyTaskSubtree(taskRow) {
   const children = [];
-
-  if (options.includeProject && taskRow.project) {
-    const projectRow = data.projects.find((item) => item.name === taskRow.project) ?? null;
-    if (projectRow) {
-      children.push({
-        isGroup: true,
-        label: "Projects",
-        children: [createTreeLeafNode("projects", projectRow, getRecordReferenceLabel("projects", projectRow))],
-      });
-    }
-  }
-
-  const peopleNodes = getTaskPeopleTreeNodes(taskRow);
-  if (peopleNodes.length) {
-    children.push({
-      isGroup: true,
-      label: "People",
-      children: peopleNodes,
-    });
-  }
+  const peopleGroup = createTreeGroup("People", getTaskPeopleTreeNodes(taskRow));
+  if (peopleGroup) children.push(peopleGroup);
+  appendHierarchyLevelAttachments(children, "task", taskRow);
 
   const subtaskNodes = (data.tasks ?? [])
-    .filter((item) => String(item.parent_task || "") === String(taskRow.title || ""))
-    .map((item) => buildStructuredTaskNode(item));
+    .filter((item) => String(item.parent_task ?? "").trim() === String(taskRow.title ?? "").trim())
+    .map((item) => buildHierarchyTaskSubtree(item));
+  const taskGroup = createTreeGroup("Tasks", subtaskNodes);
+  if (taskGroup) children.push(taskGroup);
 
-  pushStructuredGroup(
-    children,
-    "Assets",
-    "assets",
-    (data.assets ?? []).filter((item) => item.task === taskRow.title),
-  );
-
-  pushStructuredGroup(
-    children,
-    "Events",
-    "events",
-    (data.events ?? []).filter((item) => item.task === taskRow.title),
-  );
-
-  pushStructuredGroup(
-    children,
-    "Documents",
-    "documents",
-    (data.documents ?? []).filter((item) => item.task === taskRow.title || (Array.isArray(item.links) && item.links.includes(taskRow.title))),
-  );
-
-  pushStructuredGroup(
-    children,
-    "Transactions",
-    "transactions",
-    (data.transactions ?? []).filter((item) => item.task === taskRow.title),
-  );
-
-  if (subtaskNodes.length) {
-    children.push({
-      isGroup: true,
-      label: "Tasks",
-      children: subtaskNodes,
-    });
-  }
-
-  return {
-    id: taskRow.id,
-    tableKey: "tasks",
-    label: getRecordLabel("tasks", taskRow),
-    iconKey: "tasks",
-    toneClass: "",
-    isRoot: false,
-    children,
-  };
+  return createTreeRecordNode("tasks", taskRow, children);
 }
 
-function buildStructuredProjectNode(projectRow, options = {}) {
+function buildFocusedTaskChain(taskChain, options = {}) {
+  const [currentTask, ...remainingChain] = taskChain;
+  if (!currentTask) return null;
+
+  const children = [];
+  if (remainingChain.length) {
+    const nextTaskNode = buildFocusedTaskChain(remainingChain, options);
+    const taskGroup = createTreeGroup("Tasks", nextTaskNode ? [nextTaskNode] : []);
+    if (taskGroup) children.push(taskGroup);
+  } else {
+    const peopleGroup = createTreeGroup("People", getTaskPeopleTreeNodes(currentTask));
+    if (peopleGroup) children.push(peopleGroup);
+
+    if (options.onlyRecord) {
+      appendFocusedAttachmentNode(children, options.onlyRecord);
+    } else {
+      appendHierarchyLevelAttachments(children, "task", currentTask);
+      const subtaskNodes = (data.tasks ?? [])
+        .filter((item) => String(item.parent_task ?? "").trim() === String(currentTask.title ?? "").trim())
+        .map((item) => buildHierarchyTaskSubtree(item));
+      const taskGroup = createTreeGroup("Tasks", subtaskNodes);
+      if (taskGroup) children.push(taskGroup);
+    }
+  }
+
+  return createTreeRecordNode("tasks", currentTask, children);
+}
+
+function buildHierarchyProjectSubtree(projectRow, options = {}) {
   const children = [];
 
-  if (options.includeVenture && projectRow.venture) {
-    const ventureRow = data.ventures.find((item) => item.name === projectRow.venture) ?? null;
-    if (ventureRow) {
-      children.push({
-        isGroup: true,
-        label: "Ventures",
-        children: [createTreeLeafNode("ventures", ventureRow, getRecordReferenceLabel("ventures", ventureRow))],
-      });
+  if (options.focusedTaskChain?.length) {
+    const focusedTaskNode = buildFocusedTaskChain(options.focusedTaskChain, { onlyRecord: options.onlyRecord });
+    const taskGroup = createTreeGroup("Tasks", focusedTaskNode ? [focusedTaskNode] : []);
+    if (taskGroup) children.push(taskGroup);
+  } else {
+    if (options.onlyRecord) {
+      appendFocusedAttachmentNode(children, options.onlyRecord);
+    } else {
+      appendHierarchyLevelAttachments(children, "project", projectRow);
     }
+    const taskNodes = (data.tasks ?? [])
+      .filter((item) => String(item.project ?? "").trim() === String(projectRow.name ?? "").trim() && !String(item.parent_task ?? "").trim())
+      .map((item) => buildHierarchyTaskSubtree(item));
+    const taskGroup = createTreeGroup("Tasks", taskNodes);
+    if (taskGroup) children.push(taskGroup);
   }
 
-  const taskNodes = (data.tasks ?? [])
-    .filter((item) => item.project === projectRow.name && !item.parent_task)
-    .map((item) => buildStructuredTaskNode(item));
-
-  pushStructuredGroup(
-    children,
-    "Assets",
-    "assets",
-    (data.assets ?? []).filter((item) => item.project === projectRow.name),
-  );
-
-  pushStructuredGroup(
-    children,
-    "Events",
-    "events",
-    (data.events ?? []).filter((item) => item.project === projectRow.name),
-  );
-
-  pushStructuredGroup(
-    children,
-    "Documents",
-    "documents",
-    (data.documents ?? []).filter((item) => item.project === projectRow.name || (Array.isArray(item.links) && item.links.includes(projectRow.name))),
-  );
-
-  pushStructuredGroup(
-    children,
-    "Transactions",
-    "transactions",
-    (data.transactions ?? []).filter((item) => item.project === projectRow.name),
-  );
-
-  if (taskNodes.length) {
-    children.push({
-      isGroup: true,
-      label: "Tasks",
-      children: taskNodes,
-    });
-  }
-
-  return {
-    id: projectRow.id,
-    tableKey: "projects",
-    label: getRecordLabel("projects", projectRow),
-    iconKey: "projects",
-    toneClass: getTreeNodeToneClass("projects", projectRow),
-    isRoot: false,
-    children,
-  };
+  return createTreeRecordNode("projects", projectRow, children);
 }
 
-function buildStructuredTree(tableKey, record) {
+function buildHierarchyTree(tableKey, record) {
+  const hierarchyTables = new Set(["ventures", "projects", "tasks", "documents", "assets", "events", "transactions"]);
+  if (!hierarchyTables.has(tableKey)) return null;
+
+  const projectRow = tableKey === "projects"
+    ? record
+    : tableKey === "tasks"
+      ? getProjectByName(record?.project)
+      : String(record?.project ?? "").trim()
+        ? getProjectByName(record.project)
+        : null;
+  const taskRow = tableKey === "tasks"
+    ? record
+    : String(record?.task ?? "").trim()
+      ? getTaskByTitle(record.task)
+      : null;
+  const ventureName = tableKey === "ventures"
+    ? String(record?.name ?? "").trim()
+    : tableKey === "projects"
+      ? String(record?.venture ?? "").trim()
+      : String(projectRow?.venture ?? record?.venture ?? "").trim();
+  const ventureRow = ventureName ? getVentureByName(ventureName) : null;
+  const taskChain = getTaskAncestorChain(taskRow);
+  const onlyRecord = ["documents", "assets", "events", "transactions"].includes(tableKey)
+    ? { tableKey, row: record }
+    : null;
+
+  if (!ventureRow) {
+    return createTreeRecordNode(tableKey, record, [], { isRoot: true });
+  }
+
+  const ventureChildren = [];
   if (tableKey === "ventures") {
-    const children = [];
-    const venturePeople = getVentureLinkedPeople(record);
-    if (venturePeople.length) {
-      children.push({
-        isGroup: true,
-        label: "People",
-        children: venturePeople,
-      });
-    }
+    const peopleGroup = createTreeGroup("People", getVentureLinkedPeople(ventureRow));
+    if (peopleGroup) ventureChildren.push(peopleGroup);
+  }
 
+  if (projectRow) {
+    const projectNode = buildHierarchyProjectSubtree(projectRow, {
+      focusedTaskChain: taskChain,
+      onlyRecord,
+    });
+    const projectGroup = createTreeGroup("Projects", projectNode ? [projectNode] : []);
+    if (projectGroup) ventureChildren.push(projectGroup);
+  } else if (tableKey === "ventures") {
+    appendHierarchyLevelAttachments(ventureChildren, "venture", ventureRow);
     const projectNodes = (data.projects ?? [])
-      .filter((item) => item.venture === record.name)
-      .map((item) => buildStructuredProjectNode(item));
-
-    if (projectNodes.length) {
-      children.push({
-        isGroup: true,
-        label: "Projects",
-        children: projectNodes,
-      });
-    }
-
-    pushStructuredGroup(
-      children,
-      "Events",
-      "events",
-      (data.events ?? []).filter((item) => item.venture === record.name),
-    );
-
-    pushStructuredGroup(
-      children,
-      "Assets",
-      "assets",
-      (data.assets ?? []).filter((item) => item.venture === record.name),
-    );
-
-    pushStructuredGroup(
-      children,
-      "Documents",
-      "documents",
-      (data.documents ?? []).filter((item) => item.venture === record.name || (Array.isArray(item.links) && item.links.includes(record.name))),
-    );
-
-    pushStructuredGroup(
-      children,
-      "Transactions",
-      "transactions",
-      (data.transactions ?? []).filter((item) => item.venture === record.name),
-    );
-
-    return {
-      id: record.id,
-      tableKey,
-      label: getRecordLabel(tableKey, record),
-      iconKey: tableKey,
-      toneClass: getTreeNodeToneClass(tableKey, record),
-      isRoot: true,
-      children,
-    };
+      .filter((item) => String(item.venture ?? "").trim() === String(ventureRow.name ?? "").trim())
+      .map((item) => buildHierarchyProjectSubtree(item));
+    const projectGroup = createTreeGroup("Projects", projectNodes);
+    if (projectGroup) ventureChildren.push(projectGroup);
+  } else {
+    appendFocusedAttachmentNode(ventureChildren, onlyRecord);
   }
 
-  if (tableKey === "projects") {
-    const root = buildStructuredProjectNode(record, { includeVenture: true });
-    return { ...root, isRoot: true };
-  }
-
-  if (tableKey === "tasks") {
-    const root = buildStructuredTaskNode(record, { includeProject: true });
-    return { ...root, isRoot: true };
-  }
-
-  return null;
+  return createTreeRecordNode("ventures", ventureRow, ventureChildren, {
+    isRoot: true,
+    label: getRecordLabel("ventures", ventureRow),
+    toneClass: getTreeNodeToneClass("ventures", ventureRow),
+  });
 }
 
 function buildConnectionTree(tableKey, record, depth = 0, visited = new Set(), rootTableKey = tableKey) {
-  const structuredRoot = depth === 0 ? buildStructuredTree(tableKey, record) : null;
-  if (structuredRoot) return structuredRoot;
+  const hierarchyRoot = depth === 0 ? buildHierarchyTree(tableKey, record) : null;
+  if (hierarchyRoot) return hierarchyRoot;
 
   const nodeKey = getTreeNodeKey(tableKey, record);
   const nextVisited = new Set(visited);
@@ -3186,39 +3428,22 @@ function buildConnectionTree(tableKey, record, depth = 0, visited = new Set(), r
 
         const shouldExpandChild = shouldExpandTreeItem(rootTableKey, tableKey, depth, item.tableKey);
         if (!shouldExpandChild) {
-          return {
-            id: item.id,
-            tableKey: item.tableKey,
+          return createTreeRecordNode(item.tableKey, item.row, [], {
             label: item.label || getRecordLabel(item.tableKey, item.row),
-            iconKey: item.tableKey,
-            toneClass: getTreeNodeToneClass(item.tableKey, item.row),
-            isRoot: false,
-            children: [],
-          };
+          });
         }
 
         return buildConnectionTree(item.tableKey, item.row, depth + 1, nextVisited, rootTableKey);
       })
       .filter(Boolean);
 
-    if (!branchChildren.length) return;
-
-    children.push({
-      isGroup: true,
-      label: connection.label,
-      children: branchChildren,
-    });
+    const group = createTreeGroup(connection.label, branchChildren);
+    if (group) children.push(group);
   });
 
-  return {
-    id: record.id,
-    tableKey,
-    label: getRecordLabel(tableKey, record),
-    iconKey: tableKey,
-    toneClass: getTreeNodeToneClass(tableKey, record),
+  return createTreeRecordNode(tableKey, record, children, {
     isRoot: depth === 0,
-    children,
-  };
+  });
 }
 
 function renderConnectionTreeNode(node) {
@@ -3239,19 +3464,36 @@ function renderConnectionTreeNode(node) {
   const iconMarkup = !node.isGroup && node.iconKey
     ? `<span class="connection-node-icon" aria-hidden="true">${getTableIcon(node.iconKey)}</span>`
     : "";
+  const rootRow = node.isRoot && node.id
+    ? data[node.tableKey]?.find((item) => item.id === node.id) ?? null
+    : null;
+  const venturePrimaryContact = node.isRoot && node.tableKey === "ventures"
+    ? String(rootRow?.primary_contact ?? "").trim()
+    : "";
+  const nodeContent = node.isGroup
+    ? `<span>${escapeHtml(node.label)}</span>`
+    : node.isRoot && node.tableKey === "ventures"
+      ? `
+        <span class="connection-node-root-copy">
+          <span class="connection-node-root-eyebrow">Venture</span>
+          <span class="connection-node-root-title">${escapeHtml(node.label)}</span>
+          <span class="connection-node-root-meta">Primary Contact: ${escapeHtml(venturePrimaryContact || "—")}</span>
+        </span>
+      `
+      : `${iconMarkup}<span>${escapeHtml(node.label)}</span>`;
 
   return `
     <li${shouldStackChildren ? ' class="tree-group-stack-vertical"' : ""}>
       ${node.isGroup
         ? `<div class="${nodeClass}"><span>${escapeHtml(node.label)}</span></div>`
-        : `<button class="${nodeClass}" ${attrs}>${iconMarkup}<span>${escapeHtml(node.label)}</span></button>`}
+        : `<button class="${nodeClass}" ${attrs}>${nodeContent}</button>`}
       ${node.children?.length ? `<ul>${node.children.map((child) => renderConnectionTreeNode(child)).join("")}</ul>` : ""}
     </li>
   `;
 }
 
 function renderDetailTree(tableKey, record) {
-  const root = buildStructuredTree(tableKey, record) ?? buildConnectionTree(tableKey, record);
+  const root = buildHierarchyTree(tableKey, record) ?? buildConnectionTree(tableKey, record);
 
   if (!root || !root.children.length) {
     return `<div class="detail-empty">No connected records found.</div>`;
@@ -3269,7 +3511,7 @@ function renderDetailTree(tableKey, record) {
 }
 
 function getExpandedLinkedGroups(tableKey, record) {
-  const root = buildStructuredTree(tableKey, record) ?? buildConnectionTree(tableKey, record);
+  const root = buildHierarchyTree(tableKey, record) ?? buildConnectionTree(tableKey, record);
   if (!root) return [];
 
   const grouped = new Map();
@@ -3320,18 +3562,27 @@ function renderRecordDetail(table, record) {
   const detailFields = table.key === "documents"
     ? table.fields.filter((field) => field.name !== "body")
     : table.fields;
+  const renderDetailFieldValue = (field, display) => {
+    if (table.key === "documents" && field.name === "file_ref") {
+      const visitUrl = getDocumentVisitUrl(record);
+      if (visitUrl) {
+        return `<a class="detail-field-link" href="${escapeHtml(visitUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(display)}</a>`;
+      }
+    }
+    return escapeHtml(display);
+  };
   const rows = detailFields.map((field) => {
     const value = getFieldDisplayValue(field, record);
     const display = Array.isArray(record?.[field.name]) ? record[field.name].join(", ") : value || "—";
     return `
       <div class="detail-field">
         <div class="detail-field-label">${escapeHtml(field.label)} :</div>
-        <div class="detail-field-value">${escapeHtml(display)}</div>
+        <div class="detail-field-value">${renderDetailFieldValue(field, display)}</div>
       </div>
     `;
   }).join("");
 
-  const connections = table.key === "ventures"
+  const connections = ["ventures", "projects", "tasks", "documents", "assets", "events", "transactions"].includes(table.key)
     ? getExpandedLinkedGroups(table.key, record)
     : getRecordConnections(table.key, record);
   const primaryVenture = String(record?.venture ?? record?.name ?? "").trim();
@@ -3399,8 +3650,8 @@ function renderRecordDetail(table, record) {
           </div>
           <div class="detail-actions">
             <button class="record-action-button" type="button" data-detail-action="tree">${state.detailTreeOpen ? "Hide tree" : "Tree view"}</button>
-            <button class="record-action-button" type="button" data-detail-action="edit">Edit</button>
-            <button class="record-action-button" type="button" data-detail-action="delete">Delete</button>
+            ${renderRecordActionIconButton("edit", "Edit", 'data-detail-action="edit"')}
+            ${renderRecordActionIconButton("delete", "Delete", 'data-detail-action="delete"')}
           </div>
         </div>
         <div class="detail-grid">
@@ -3440,6 +3691,40 @@ function renderRecordDetail(table, record) {
       </div>
     </div>
   `;
+}
+
+function getActiveDetailTreeStateKey() {
+  if (!state.detailTableKey || !state.detailRecordId) return "";
+  return `${state.detailTableKey}:${state.detailRecordId}`;
+}
+
+function captureDetailTreeScroll() {
+  const canvas = el.heroPanel?.querySelector(".detail-tree-canvas");
+  const key = getActiveDetailTreeStateKey();
+  if (!(canvas instanceof HTMLElement) || !key || !state.detailTreeOpen) return;
+  state.detailTreeScroll = {
+    key,
+    left: canvas.scrollLeft,
+  };
+}
+
+function restoreDetailTreeScroll() {
+  const canvas = el.heroPanel?.querySelector(".detail-tree-canvas");
+  const key = getActiveDetailTreeStateKey();
+  if (!(canvas instanceof HTMLElement) || !key || !state.detailTreeOpen) return;
+
+  const saved = state.detailTreeScroll;
+  if (saved?.key === key && Number.isFinite(saved.left)) {
+    canvas.scrollLeft = saved.left;
+  }
+
+  canvas.addEventListener("scroll", () => {
+    if (!state.detailTreeOpen) return;
+    state.detailTreeScroll = {
+      key,
+      left: canvas.scrollLeft,
+    };
+  }, { passive: true });
 }
 
 function allRecords() {
@@ -3676,6 +3961,12 @@ function showAppShell() {
 }
 
 function loginApp(password) {
+  const validation = validateUniquePasswords();
+  if (!validation.valid) {
+    renderLoginScreen(`Duplicate passwords exist for ${validation.users.join(", ")}. Passwords are case-insensitive; fix Admin users first.`);
+    return false;
+  }
+
   const user = getUserByPassword(password);
   if (!user) {
     renderLoginScreen("Invalid password.");
@@ -3684,7 +3975,9 @@ function loginApp(password) {
 
   state.isAuthenticated = true;
   state.role = user.role;
+  state.currentUser = user;
   setStoredAuthState(true);
+  setStoredAuthUser(user);
   if (el.loginError) el.loginError.textContent = "";
   showAppShell();
   renderAll();
@@ -3693,7 +3986,9 @@ function loginApp(password) {
 
 function logoutApp() {
   state.isAuthenticated = false;
+  state.currentUser = null;
   setStoredAuthState(false);
+  setStoredAuthUser(null);
   state.activeNav = "dashboard";
   state.assetsView = "table";
   state.search = "";
@@ -3725,11 +4020,25 @@ function formatDashboardDate(value, includeTime = false) {
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return value;
 
-  const options = includeTime
-    ? { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }
-    : { day: "2-digit", month: "short" };
+  if (!includeTime) {
+    return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(date);
+  }
 
-  return new Intl.DateTimeFormat("en-GB", options).format(date);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(date);
+  const getPart = (type) => parts.find((part) => part.type === type)?.value ?? "";
+  const day = getPart("day");
+  const month = getPart("month");
+  const hour = getPart("hour");
+  const minute = getPart("minute");
+  const dayPeriod = getPart("dayPeriod").toUpperCase();
+
+  return `${day} ${month} - ${hour}:${minute} ${dayPeriod}`.trim();
 }
 
 function getDateOnlyKey(value) {
@@ -4629,6 +4938,10 @@ function getDocumentVisitUrl(record) {
 }
 
 function renderRecordsBody(table, rows) {
+  if (!rows.length) {
+    return `<tr class="records-empty-row"><td colspan="${table.listColumns.length + 2}"><div class="records-empty-state">No records</div></td></tr>`;
+  }
+
   return rows.map((row, index) => `
     <tr data-open-detail="${escapeHtml(table.key)}" data-record-id="${escapeHtml(row.id)}">
       <td class="records-serial-cell">${renderSerialNumber(index + 1)}</td>
@@ -4637,11 +4950,11 @@ function renderRecordsBody(table, rows) {
         ${table.key === "documents" && getDocumentVisitUrl(row)
           ? `<button class="record-action-button" type="button" data-record-action="visit" data-record-id="${escapeHtml(row.id)}">Visit</button>`
           : ""}
-        <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(row.id)}">Edit</button>
-        <button class="record-action-button" type="button" data-record-action="delete" data-record-id="${escapeHtml(row.id)}">Delete</button>
+        ${renderRecordActionIconButton("edit", `Edit ${row.name || row.title || row.reference || "record"}`, `data-record-action="edit" data-record-id="${escapeHtml(row.id)}"`)}
+        ${renderRecordActionIconButton("delete", `Delete ${row.name || row.title || row.reference || "record"}`, `data-record-action="delete" data-record-id="${escapeHtml(row.id)}"`)}
       </td>
     </tr>
-  `).join("") || `<tr><td colspan="${table.listColumns.length + 2}">No records</td></tr>`;
+  `).join("");
 }
 
 function getVentureTone(value) {
@@ -4681,7 +4994,7 @@ function renderPersonStatus(status) {
 }
 
 function renderPeopleRecords(rows) {
-  if (!rows.length) return `<div class="people-empty">No records</div>`;
+  if (!rows.length) return `<div class="people-empty records-empty-state">No records</div>`;
 
   const groups = new Map();
   rows.forEach((row) => {
@@ -4709,8 +5022,8 @@ function renderPeopleRecords(rows) {
               ${renderPersonStatus(row.status || "No status")}
             </div>
             <div class="person-card-actions">
-              <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(row.id)}">Edit</button>
-              <button class="record-action-button" type="button" data-record-action="delete" data-record-id="${escapeHtml(row.id)}">Delete</button>
+              ${renderRecordActionIconButton("edit", `Edit ${row.name || row.title || row.reference || "record"}`, `data-record-action="edit" data-record-id="${escapeHtml(row.id)}"`)}
+              ${renderRecordActionIconButton("delete", `Delete ${row.name || row.title || row.reference || "record"}`, `data-record-action="delete" data-record-id="${escapeHtml(row.id)}"`)}
             </div>
           </article>
         `).join("")}
@@ -4743,6 +5056,33 @@ function buildTaskHierarchy(rows) {
   return { rootRows, childrenByParentId };
 }
 
+function getTaskDescendantIds(taskId) {
+  const startTask = data.tasks.find((item) => item.id === taskId) ?? null;
+  if (!startTask) return [];
+
+  const collected = [];
+  const stack = [startTask];
+  const visited = new Set();
+
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current || visited.has(current.id)) continue;
+    visited.add(current.id);
+    collected.push(current.id);
+
+    const title = String(current.title || "").trim();
+    if (!title) continue;
+
+    data.tasks.forEach((row) => {
+      if (String(row.parent_task || "").trim() === title) {
+        stack.push(row);
+      }
+    });
+  }
+
+  return collected;
+}
+
 function renderTaskTitleCell(row, serial, children = [], isChild = false) {
   const hasChildren = children.length > 0;
   const expanded = Boolean(state.taskExpanded[row.id]);
@@ -4769,7 +5109,7 @@ function renderTaskTitleCell(row, serial, children = [], isChild = false) {
 }
 
 function renderTaskRows(rows) {
-  if (!rows.length) return `<tr><td colspan="7">No records</td></tr>`;
+  if (!rows.length) return `<tr class="records-empty-row"><td colspan="7"><div class="records-empty-state">No records</div></td></tr>`;
   const { rootRows, childrenByParentId } = buildTaskHierarchy(rows);
 
   return rootRows.map((row, index) => {
@@ -4784,8 +5124,8 @@ function renderTaskRows(rows) {
         <td>${renderCellMarkup("tasks", "priority", row)}</td>
         <td>${renderCellMarkup("tasks", "due_date", row)}</td>
         <td class="records-actions-cell">
-          <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(row.id)}">Edit</button>
-          <button class="record-action-button" type="button" data-record-action="delete" data-record-id="${escapeHtml(row.id)}">Delete</button>
+          ${renderRecordActionIconButton("edit", `Edit ${row.title || "task"}`, `data-record-action="edit" data-record-id="${escapeHtml(row.id)}"`)}
+          ${renderRecordActionIconButton("delete", `Delete ${row.title || "task"}`, `data-record-action="delete" data-record-id="${escapeHtml(row.id)}"`)}
         </td>
       </tr>
     `;
@@ -4800,8 +5140,8 @@ function renderTaskRows(rows) {
           <td>${renderCellMarkup("tasks", "priority", child)}</td>
           <td>${renderCellMarkup("tasks", "due_date", child)}</td>
           <td class="records-actions-cell">
-            <button class="record-action-button" type="button" data-record-action="edit" data-record-id="${escapeHtml(child.id)}">Edit</button>
-            <button class="record-action-button" type="button" data-record-action="delete" data-record-id="${escapeHtml(child.id)}">Delete</button>
+            ${renderRecordActionIconButton("edit", `Edit ${child.title || "task"}`, `data-record-action="edit" data-record-id="${escapeHtml(child.id)}"`)}
+            ${renderRecordActionIconButton("delete", `Delete ${child.title || "task"}`, `data-record-action="delete" data-record-id="${escapeHtml(child.id)}"`)}
           </td>
         </tr>
       `).join("")
@@ -4919,6 +5259,8 @@ function renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptio
   const showProjectFilter = projectOptions.length > 0;
   const documentTypeOptions = table.key === "documents" ? getFilterOptions("documents", "type") : [];
   const documentStatusOptions = table.key === "documents" ? getFilterOptions("documents", "status") : [];
+  const eventTypeOptions = table.key === "events" ? getFilterOptions("events", "type") : [];
+  const assetStatusOptions = table.key === "assets" ? getFilterOptions("assets", "status") : [];
   const searchPlaceholder = `Search ${escapeHtml(table.title.toLowerCase())}...`;
   const showAssetsViewToggle = table.key === "assets";
 
@@ -4963,12 +5305,30 @@ function renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptio
               </select>
             </label>
           ` : ""}
-          <label class="records-filter">
-            <select id="records-order-filter">
-              <option value="newest" ${filters.order === "newest" ? "selected" : ""}>Newest first</option>
-              <option value="oldest" ${filters.order === "oldest" ? "selected" : ""}>Oldest first</option>
-            </select>
-          </label>
+          ${table.key === "events" ? `
+            <label class="records-filter">
+              <select id="records-type-filter">
+                <option value="all" ${filters.type === "all" ? "selected" : ""}>All types</option>
+                ${eventTypeOptions.map((option) => `<option value="${escapeHtml(option)}" ${filters.type === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+              </select>
+            </label>
+          ` : ""}
+          ${table.key === "assets" ? `
+            <label class="records-filter">
+              <select id="records-status-filter">
+                <option value="all" ${filters.status === "all" ? "selected" : ""}>All statuses</option>
+                ${assetStatusOptions.map((option) => `<option value="${escapeHtml(option)}" ${filters.status === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+              </select>
+            </label>
+          ` : ""}
+          ${table.key === "documents" || table.key === "assets" || table.key === "events" ? "" : `
+            <label class="records-filter">
+              <select id="records-order-filter">
+                <option value="newest" ${filters.order === "newest" ? "selected" : ""}>Newest first</option>
+                <option value="oldest" ${filters.order === "oldest" ? "selected" : ""}>Oldest first</option>
+              </select>
+            </label>
+          `}
         </div>
         ${showAssetsViewToggle ? `
           <div class="records-view-toggle" role="tablist" aria-label="Assets views">
@@ -5260,6 +5620,7 @@ function openRecordDetail(tableKey, recordId, options = {}) {
   state.detailTableKey = tableKey;
   state.detailRecordId = recordId;
   state.detailTreeOpen = false;
+  state.detailTreeScroll = null;
   state.assetStreetViewAssetId = null;
   renderSidebarNav();
   renderMeta();
@@ -5285,6 +5646,7 @@ function getActiveDetailRecord() {
 }
 
 function renderHeroPanel() {
+  captureDetailTreeScroll();
   const detail = getActiveDetailRecord();
   el.heroPanel.classList.toggle("hero-panel-gantt", state.activeNav === "gantt" && !detail);
   if (state.activeNav !== "assets" || state.assetsView !== "map" || detail) {
@@ -5293,6 +5655,7 @@ function renderHeroPanel() {
   }
   if (detail && (detail.table.key === state.activeNav || state.activeNav === "gantt")) {
     el.heroPanel.innerHTML = renderRecordDetail(detail.table, detail.record);
+    restoreDetailTreeScroll();
     el.heroPanel.querySelectorAll("[data-detail-action]").forEach((button) => {
       button.addEventListener("click", async () => {
         const action = button.dataset.detailAction;
@@ -5346,12 +5709,6 @@ function renderHeroPanel() {
     el.heroPanel.innerHTML = `
       <div class="page-view page-view-admin">
         <section class="panel admin-panel">
-          <div class="panel-head admin-panel-head">
-            <div>
-              <h2>Admin</h2>
-              <p>Create users, passwords, and access control.</p>
-            </div>
-          </div>
           ${renderAdminWorkspace()}
         </section>
       </div>
@@ -5462,10 +5819,15 @@ function renderAdminWorkspace() {
     return [user.name, user.email, user.role, user.password]
       .some((value) => String(value ?? "").toLowerCase().includes(query));
   });
+  const currentCount = userAccounts.length;
 
   return `
     <div class="admin-workspace">
       <div class="records-toolbar admin-workspace-head">
+        <div class="admin-workspace-title">
+          <h2>Admin</h2>
+          <span>${currentCount} ${currentCount === 1 ? "user" : "users"}</span>
+        </div>
         <div class="records-toolbar-search">
           <input id="admin-search" class="records-search" type="search" placeholder="Search users..." value="${escapeHtml(state.search)}" />
         </div>
@@ -5477,16 +5839,20 @@ function renderAdminWorkspace() {
         <table class="records-table admin-user-table">
           <thead>
             <tr>
+              <th>S. No.</th>
               <th>Name</th>
               <th>Password</th>
               <th>Role</th>
+              <th>Added by</th>
+              <th>Added at</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-        ${filteredUsers.map((user) => {
+        ${filteredUsers.map((user, index) => {
           return `
             <tr data-user-id="${escapeHtml(user.id)}">
+              <td>${index + 1}</td>
               <td>
                 <div class="admin-user-name-cell">
                   <strong>${escapeHtml(user.name)}</strong>
@@ -5495,6 +5861,8 @@ function renderAdminWorkspace() {
               </td>
               <td>${escapeHtml(user.password)}</td>
               <td><span class="admin-user-role">${escapeHtml(user.role)}</span></td>
+              <td>${escapeHtml(user.createdBy || "System")}</td>
+              <td>${escapeHtml(user.createdAt ? formatDashboardDate(user.createdAt, true) : "—")}</td>
               <td>
                 <div class="admin-user-actions">
                   <button class="record-action-button admin-user-icon-button" type="button" data-user-action="edit" data-user-id="${escapeHtml(user.id)}" aria-label="Edit ${escapeHtml(user.name)}" title="Edit">
@@ -5518,7 +5886,7 @@ function renderAdminWorkspace() {
           `;
         }).join("") || `
           <tr>
-            <td colspan="4" class="admin-user-empty">No users found.</td>
+            <td colspan="6" class="admin-user-empty">No users found.</td>
           </tr>
         `}
           </tbody>
@@ -5860,8 +6228,8 @@ function renderAdminUserForm(user = null) {
 
   return `
     <label class="form-field">
-      <span>Name *</span>
-      <input name="user_name" type="text" value="${escapeHtml(user?.name ?? "")}" required />
+      <span>Name</span>
+      <input name="user_name" type="text" value="${escapeHtml(user?.name ?? "")}" />
     </label>
     <label class="form-field">
       <span>Email *</span>
@@ -5871,9 +6239,11 @@ function renderAdminUserForm(user = null) {
       <span>Password *</span>
       <input name="user_password" type="text" value="${escapeHtml(user?.password ?? "")}" required />
     </label>
+    <p id="admin-form-message" class="admin-form-message" aria-live="polite"></p>
     <label class="form-field">
       <span>Role *</span>
       <select name="user_role" required>
+        <option value="" ${!user?.role ? "selected" : ""}>Select role</option>
         ${sortedRoles.map((roleKey) => `<option value="${escapeHtml(roleKey)}" ${user?.role === roleKey ? "selected" : ""}>${escapeHtml(roleKey)}</option>`).join("")}
       </select>
     </label>
@@ -5937,6 +6307,12 @@ function openAdminUserForm(userId = null) {
   el.modal.classList.add("open");
   syncBodyModalState();
   bindFormattedInputs();
+  setAdminFormMessage("");
+}
+
+function setAdminFormMessage(message = "") {
+  const messageEl = el.form?.querySelector("#admin-form-message");
+  if (messageEl) messageEl.textContent = message;
 }
 
 function syncBodyModalState() {
@@ -5958,7 +6334,7 @@ function openDeleteConfirm(message, confirmLabel = "Delete") {
   el.confirmDeleteButton.textContent = confirmLabel;
   el.confirmModal.classList.add("open");
   syncBodyModalState();
-  el.confirmCancelButton.focus();
+  el.confirmDeleteButton.focus();
 
   return new Promise((resolve) => {
     confirmResolve = resolve;
@@ -6073,6 +6449,34 @@ function bindHierarchyFilters(record = null) {
     taskSelect.value = "";
   };
 
+  const parentTaskSelect = el.formElement?.elements?.parent_task;
+  const syncParentTaskOptions = () => {
+    if (!(parentTaskSelect instanceof HTMLSelectElement)) return;
+
+    const selectedParentTask = parentTaskSelect.value.trim();
+    const selectedProject = projectSelect.value.trim();
+    const options = getRelationOptions("parent_task", state.activeTable, record);
+
+    parentTaskSelect.innerHTML = [
+      `<option value="">${escapeHtml(selectedProject ? "Select parent task" : "Select project first")}</option>`,
+      ...options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`),
+    ].join("");
+
+    parentTaskSelect.disabled = !selectedProject;
+
+    if (selectedParentTask && options.some((option) => option.value === selectedParentTask)) {
+      parentTaskSelect.value = selectedParentTask;
+      return;
+    }
+
+    if (record?.parent_task && options.some((option) => option.value === record.parent_task)) {
+      parentTaskSelect.value = record.parent_task;
+      return;
+    }
+
+    parentTaskSelect.value = "";
+  };
+
   const syncProjectOptions = () => {
     const selectedProject = projectSelect.value.trim();
     const selectedVenture = ventureSelect.value.trim();
@@ -6094,10 +6498,14 @@ function bindHierarchyFilters(record = null) {
     }
 
     syncTaskOptions();
+    syncParentTaskOptions();
   };
 
   ventureSelect.addEventListener("change", syncProjectOptions);
-  projectSelect.addEventListener("change", syncTaskOptions);
+  projectSelect.addEventListener("change", () => {
+    syncTaskOptions();
+    syncParentTaskOptions();
+  });
   syncProjectOptions();
 }
 
@@ -6112,8 +6520,22 @@ function bindFormattedInputs() {
   });
 }
 
-function normalizeHierarchicalRecord(tableKey, record) {
+function normalizeHierarchicalRecord(tableKey, record, currentRecordId = "") {
   if (tableKey === "tasks") {
+    const parentTaskTitle = String(record.parent_task ?? "").trim();
+    const parentTaskRow = parentTaskTitle ? getTaskByTitle(parentTaskTitle) : null;
+    if (parentTaskRow && String(parentTaskRow.id ?? "") !== String(currentRecordId)) {
+      record.parent_task = String(parentTaskRow.title ?? "").trim();
+      if (parentTaskRow.project) {
+        record.project = String(parentTaskRow.project).trim();
+      }
+      if (parentTaskRow.venture) {
+        record.venture = String(parentTaskRow.venture).trim();
+      }
+    } else if (parentTaskTitle) {
+      record.parent_task = "";
+    }
+
     const projectRow = String(record.project ?? "").trim() ? getProjectByName(String(record.project).trim()) : null;
     if (projectRow?.venture) {
       record.venture = String(projectRow.venture).trim();
@@ -6155,6 +6577,35 @@ function normalizeHierarchicalRecord(tableKey, record) {
   return record;
 }
 
+function normalizeAllHierarchyData({ sync = false } = {}) {
+  const changedRecords = [];
+  const hierarchyTables = tables
+    .map((table) => table.key)
+    .filter((tableKey) => tableKey === "tasks" || hierarchyAttachmentTables.has(tableKey));
+
+  hierarchyTables.forEach((tableKey) => {
+    data[tableKey] = (data[tableKey] ?? []).map((row) => {
+      const nextRow = normalizeHierarchicalRecord(tableKey, { ...row }, String(row?.id ?? ""));
+      const changed = JSON.stringify(row) !== JSON.stringify(nextRow);
+      if (changed) changedRecords.push({ tableKey, row: nextRow });
+      return nextRow;
+    });
+  });
+
+  if (changedRecords.length) {
+    persistLocalTableCache();
+    if (sync) {
+      Promise.allSettled(
+        changedRecords.map(({ tableKey, row }) => syncRecordToSupabase(tableKey, row)),
+      ).catch((error) => {
+        console.error("Background hierarchy repair sync failed", error);
+      });
+    }
+  }
+
+  return changedRecords;
+}
+
 function closeForm() {
   el.modal.classList.remove("open");
   syncBodyModalState();
@@ -6167,7 +6618,6 @@ function closeForm() {
 function buildRecordFromForm(table) {
   const formData = new FormData(el.formElement);
   const record = {};
-  const hierarchy = getHierarchyContext();
 
   table.fields.forEach((field) => {
     if (field.type === "checkbox") {
@@ -6249,7 +6699,7 @@ function buildRecordFromForm(table) {
     }
   }
 
-  return normalizeHierarchicalRecord(table.key, record);
+  return normalizeHierarchicalRecord(table.key, record, state.editingRecordId ?? "");
 }
 
 async function saveRecord() {
@@ -6257,15 +6707,15 @@ async function saveRecord() {
   if (!table) return;
 
   const payload = buildRecordFromForm(table);
+  const previousRows = cloneRows(data[table.key] ?? []);
   let nextRecord = null;
-  let syncPromise = Promise.resolve();
+  const isEdit = state.modalMode === "edit" && state.editingRecordId;
 
-  if (state.modalMode === "edit" && state.editingRecordId) {
+  if (isEdit && state.editingRecordId) {
     const index = data[table.key].findIndex((item) => item.id === state.editingRecordId);
     if (index >= 0) {
       nextRecord = { ...data[table.key][index], ...payload };
       data[table.key][index] = nextRecord;
-      syncPromise = syncRecordToSupabase(table.key, nextRecord);
     }
   } else {
     nextRecord = {
@@ -6274,16 +6724,29 @@ async function saveRecord() {
       ...payload,
     };
     data[table.key].unshift(nextRecord);
-    syncPromise = syncRecordToSupabase(table.key, nextRecord);
   }
 
+  normalizeAllHierarchyData();
   persistLocalTableCache();
   closeForm();
   renderAll();
-  syncPromise.catch((error) => {
-    console.error("Background sync failed", error);
-    window.alert(`Saved locally. Supabase sync failed: ${error?.message ?? "Unknown error"}`);
-  });
+
+  if (!nextRecord) return;
+
+  try {
+    const syncedRecord = await syncRecordToSupabase(table.key, nextRecord, { mode: isEdit ? "update" : "insert" });
+    if (syncedRecord) {
+      data[table.key] = (data[table.key] ?? []).map((row) => (row.id === syncedRecord.id ? syncedRecord : row));
+    }
+    await refreshRemoteData({ syncHierarchy: true, render: true });
+  } catch (error) {
+    data[table.key] = previousRows;
+    normalizeAllHierarchyData();
+    persistLocalTableCache();
+    renderAll();
+    console.error("Supabase save failed", error);
+    window.alert(`Save failed to sync with Supabase: ${error?.message ?? "Unknown error"}`);
+  }
 }
 
 function saveAdminUser() {
@@ -6297,18 +6760,46 @@ function saveAdminUser() {
     venture_scope: String(formData.get("user_venture_scope") ?? "All ventures").trim(),
     table_access: formData.getAll("user_table_access").map((value) => String(value)),
   };
+
+  if (!payload.password) {
+    setAdminFormMessage("Password is required.");
+    return false;
+  }
+
+  if (!payload.role) {
+    setAdminFormMessage("Role is required.");
+    return false;
+  }
+
+  const duplicateUsers = getPasswordMatches(payload.password, state.modalMode === "edit" ? state.editingUserId : null);
+  if (duplicateUsers.length > 0) {
+    setAdminFormMessage(`Password already exists for ${duplicateUsers.map((user) => user.name || user.email || user.id).join(", ")}. Passwords are case-insensitive and must be unique.`);
+    return false;
+  }
+
   if (state.modalMode === "edit" && state.editingUserId) {
     const index = userAccounts.findIndex((item) => item.id === state.editingUserId);
-    if (index >= 0) userAccounts[index] = { ...userAccounts[index], ...payload };
+    if (index >= 0) {
+      userAccounts[index] = {
+        ...userAccounts[index],
+        ...payload,
+        createdAt: userAccounts[index].createdAt ?? new Date().toISOString(),
+        createdBy: userAccounts[index].createdBy ?? "System",
+      };
+    }
   } else {
     userAccounts.unshift({
       id: `usr_${Date.now()}`,
       ...payload,
+      createdAt: new Date().toISOString(),
+      createdBy: state.currentUser?.name || state.currentUser?.email || "System",
     });
   }
 
+  setAdminFormMessage("");
   closeForm();
   renderAll();
+  return true;
 }
 
 async function deleteAdminUser(userId) {
@@ -6329,10 +6820,35 @@ async function deleteRecord(tableKey, recordId) {
   const label = row?.name || row?.title || row?.reference || table.singular || table.title;
   const approved = await openDeleteConfirm(`Delete ${label}?`);
   if (!approved) return false;
-  await removeRecordFromSupabase(tableKey, recordId);
-  data[tableKey] = data[tableKey].filter((item) => item.id !== recordId);
+  const previousRows = cloneRows(data[tableKey] ?? []);
+
+  const taskIdsToDelete = tableKey === "tasks" ? getTaskDescendantIds(recordId) : [recordId];
+
+  if (tableKey === "tasks") {
+    data.tasks = data.tasks.filter((item) => !taskIdsToDelete.includes(item.id));
+  } else {
+    data[tableKey] = data[tableKey].filter((item) => item.id !== recordId);
+  }
+
+  normalizeAllHierarchyData();
   persistLocalTableCache();
   renderAll();
+
+  try {
+    if (tableKey === "tasks") {
+      await Promise.all(taskIdsToDelete.map((id) => removeRecordFromSupabase("tasks", id)));
+    } else {
+      await removeRecordFromSupabase(tableKey, recordId);
+    }
+    await refreshRemoteData({ syncHierarchy: true, render: true });
+  } catch (error) {
+    data[tableKey] = previousRows;
+    normalizeAllHierarchyData();
+    persistLocalTableCache();
+    renderAll();
+    window.alert(`Delete failed to sync with Supabase: ${error?.message ?? "Unknown error"}`);
+    return false;
+  }
   return true;
 }
 
@@ -6492,6 +7008,11 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (el.confirmModal.classList.contains("open") && event.key === "Enter") {
+      event.preventDefault();
+      closeDeleteConfirm(true);
+      return;
+    }
     if (event.key !== "Escape") return;
     if (state.isMobileViewport && state.isMobileNavOpen) {
       closeMobileNav();
@@ -6505,6 +7026,12 @@ function bindEvents() {
   });
 
   window.addEventListener("resize", syncViewportState);
+  window.addEventListener("focus", () => scheduleRemoteRefresh({ syncHierarchy: true, render: true }));
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      scheduleRemoteRefresh({ syncHierarchy: true, render: true });
+    }
+  });
 }
 
 function renderAll() {
@@ -6554,6 +7081,8 @@ async function init() {
   state.isMobileViewport = window.innerWidth <= MOBILE_BREAKPOINT;
   bindEvents();
   state.isAuthenticated = getStoredAuthState();
+  state.currentUser = state.isAuthenticated ? getStoredAuthUser() : null;
+  if (state.currentUser) state.role = state.currentUser.role;
   const validation = validateUniquePasswords();
   if (!validation.valid) {
     console.error(`Duplicate passwords found for: ${validation.users.join(", ")} (${validation.password})`);
@@ -6561,11 +7090,13 @@ async function init() {
   if (state.isAuthenticated) showAppShell();
   else renderLoginScreen("");
   applyLocalTableCache();
+  normalizeAllHierarchyData();
   renderAll();
-  hydrateDataFromSupabase()
+  setupSupabaseLiveSync();
+  setupRemoteRefreshPolling();
+  refreshRemoteData({ syncHierarchy: true, render: true })
     .then(() => {
-      applyLocalTableCache();
-      renderAll();
+      persistLocalTableCache();
     })
     .catch((error) => {
       console.error("Falling back to local seed data", error);
