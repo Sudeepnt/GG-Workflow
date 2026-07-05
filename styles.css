@@ -520,6 +520,8 @@ body.app-mobile {
 .page-view-dashboard,
 .page-view-gantt {
   min-width: 0;
+  --gantt-sticky-shell-top: 0px;
+  --gantt-sticky-board-top: 0px;
 }
 
 .panel {
@@ -612,7 +614,7 @@ input[type="search"] {
 
 .hero-panel.hero-panel-gantt {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .hero-minimal {
@@ -639,7 +641,7 @@ input[type="search"] {
 
 .gantt-topbar {
   position: sticky;
-  top: 0;
+  top: var(--gantt-sticky-shell-top);
   z-index: 6;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -780,10 +782,10 @@ input[type="search"] {
   margin: 0;
   border: 0;
   border-radius: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
   background: #ffffff;
   min-height: 0;
-  height: 100%;
 }
 
 .gantt-workstreams {
@@ -800,6 +802,9 @@ input[type="search"] {
 }
 
 .gantt-workstream-label {
+  position: sticky;
+  top: var(--gantt-sticky-board-top);
+  z-index: 4;
   height: 42px;
   display: flex;
   align-items: center;
@@ -808,6 +813,7 @@ input[type="search"] {
   color: #64748b;
   font-size: 11px;
   font-weight: 800;
+  background: #ffffff;
 }
 
 .gantt-workstreams-toggle {
@@ -965,7 +971,7 @@ input[type="search"] {
 
 .gantt-timeline-days {
   position: sticky;
-  top: 0;
+  top: var(--gantt-sticky-board-top);
   z-index: 4;
   height: 42px;
   display: grid;
@@ -4569,19 +4575,31 @@ input[type="search"] {
   }
 
   .page-view-gantt .gantt-topbar {
+    top: 58px;
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
     padding: 0 12px 10px;
     justify-items: start;
   }
 
+  .page-view-gantt {
+    --gantt-sticky-shell-top: 58px;
+    --gantt-sticky-board-top: 0px;
+  }
+
   .page-view-gantt .gantt-app-shell {
+    min-height: calc(100dvh - 58px);
     padding-left: 0;
     padding-right: 0;
+    padding-bottom: 0;
   }
 
   .page-view-gantt .gantt-board {
+    height: calc(100dvh - 154px);
     grid-template-columns: var(--gantt-workstream-width, 56px) minmax(0, 1fr);
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .page-view-gantt .gantt-title-row {
