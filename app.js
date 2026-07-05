@@ -7328,7 +7328,8 @@ function bindEvents() {
       const ganttWorkstreamsToggle = event.target.closest("[data-gantt-workstreams-toggle]");
       if (ganttWorkstreamsToggle instanceof HTMLElement) {
         event.stopPropagation();
-        state.ganttWorkstreamsCollapsed = !ganttWorkstreamsCollapsed;
+        const currentCollapsed = state.ganttWorkstreamsCollapsed ?? state.isMobileViewport;
+        state.ganttWorkstreamsCollapsed = !currentCollapsed;
         renderHeroPanel();
         return;
       }
