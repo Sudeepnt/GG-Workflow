@@ -638,11 +638,15 @@ input[type="search"] {
 }
 
 .gantt-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 18px;
   padding: 0 6px 12px;
+  background: var(--bg);
 }
 
 .gantt-title-row {
@@ -960,10 +964,14 @@ input[type="search"] {
 }
 
 .gantt-timeline-days {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   height: 42px;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid #e4e8ef;
+  background: #ffffff;
 }
 
 .gantt-timeline-days div {
