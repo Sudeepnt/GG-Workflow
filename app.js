@@ -1331,7 +1331,7 @@ const state = {
   recordFilters: {},
   taskExpanded: {},
   ganttSidebarExpanded: {},
-  ganttWorkstreamsCollapsed: false,
+  ganttWorkstreamsCollapsed: null,
   ganttWeekStart: null,
   ganttScale: "week",
   googleMapsApiKey: "",
@@ -4877,7 +4877,7 @@ function renderGanttChart() {
   ];
   const visibleRowCount = gridRows.filter(Boolean).length;
   const ganttSidebarExpanded = state.ganttSidebarExpanded ?? {};
-  const ganttWorkstreamsCollapsed = Boolean(state.ganttWorkstreamsCollapsed);
+  const ganttWorkstreamsCollapsed = state.ganttWorkstreamsCollapsed ?? state.isMobileViewport;
   const sidebarSection = (title, count, rows, overflowText, tableKey = "", limit = rows.length) => {
     const expanded = Boolean(ganttSidebarExpanded[tableKey]);
     const visibleRows = expanded ? rows : rows.slice(0, limit);
@@ -7328,7 +7328,7 @@ function bindEvents() {
       const ganttWorkstreamsToggle = event.target.closest("[data-gantt-workstreams-toggle]");
       if (ganttWorkstreamsToggle instanceof HTMLElement) {
         event.stopPropagation();
-        state.ganttWorkstreamsCollapsed = !state.ganttWorkstreamsCollapsed;
+        state.ganttWorkstreamsCollapsed = !ganttWorkstreamsCollapsed;
         renderHeroPanel();
         return;
       }
