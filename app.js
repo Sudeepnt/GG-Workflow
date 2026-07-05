@@ -1331,6 +1331,7 @@ const state = {
   recordFilters: {},
   taskExpanded: {},
   ganttSidebarExpanded: {},
+  ganttWorkstreamsCollapsed: false,
   ganttWeekStart: null,
   ganttScale: "week",
   googleMapsApiKey: "",
@@ -4876,6 +4877,7 @@ function renderGanttChart() {
   ];
   const visibleRowCount = gridRows.filter(Boolean).length;
   const ganttSidebarExpanded = state.ganttSidebarExpanded ?? {};
+  const ganttWorkstreamsCollapsed = Boolean(state.ganttWorkstreamsCollapsed);
   const sidebarSection = (title, count, rows, overflowText, tableKey = "", limit = rows.length) => {
     const expanded = Boolean(ganttSidebarExpanded[tableKey]);
     const visibleRows = expanded ? rows : rows.slice(0, limit);
@@ -4926,9 +4928,12 @@ function renderGanttChart() {
             <div><strong>${eventRows.length}</strong><span>Events</span></div>
           </div>
           </header>
-        <div class="gantt-board" style="${columnLineStyle(gridRows.length)}">
-          <aside class="gantt-workstreams">
-            <div class="gantt-workstream-label">Workstreams</div>
+        <div class="gantt-board" style="${columnLineStyle(gridRows.length)}; --gantt-workstream-width:${ganttWorkstreamsCollapsed ? 56 : 320}px;">
+          <aside class="gantt-workstreams${ganttWorkstreamsCollapsed ? " is-collapsed" : ""}">
+            <div class="gantt-workstream-label">
+              <span>Workstreams</span>
+              <button class="gantt-workstreams-toggle" type="button" data-gantt-workstreams-toggle aria-expanded="${!ganttWorkstreamsCollapsed}" aria-label="${ganttWorkstreamsCollapsed ? "Expand workstreams" : "Minimize workstreams"}">${ganttWorkstreamsCollapsed ? "›" : "‹"}</button>
+            </div>
             ${sidebarSection("Projects", projectRows.length, projectRows, "", "projects")}
             ${sidebarSection("Tasks", taskRows.length, taskRows, taskRows.length > 5 ? `View all ${taskRows.length} tasks` : "", "tasks", 5)}
             ${sidebarSection("Events", eventRows.length, eventRows, eventRows.length > 6 ? `View all ${eventRows.length} events` : "", "events", 6)}
@@ -7316,6 +7321,14 @@ function bindEvents() {
           ...state.ganttSidebarExpanded,
           [nextTable]: !state.ganttSidebarExpanded?.[nextTable],
         };
+        renderHeroPanel();
+        return;
+      }
+
+      const ganttWorkstreamsToggle = event.target.closest("[data-gantt-workstreams-toggle]");
+      if (ganttWorkstreamsToggle instanceof HTMLElement) {
+        event.stopPropagation();
+        state.ganttWorkstreamsCollapsed = !state.ganttWorkstreamsCollapsed;
         renderHeroPanel();
         return;
       }

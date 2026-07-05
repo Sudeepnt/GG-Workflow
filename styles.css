@@ -771,7 +771,7 @@ input[type="search"] {
 
 .gantt-board {
   display: grid;
-  grid-template-columns: 320px minmax(820px, 1fr);
+  grid-template-columns: var(--gantt-workstream-width, 320px) minmax(820px, 1fr);
   align-items: stretch;
   margin: 0;
   border: 0;
@@ -788,16 +788,56 @@ input[type="search"] {
   border-right: 1px solid #e4e8ef;
   background: #ffffff;
   min-height: 0;
+  overflow: hidden;
+}
+
+.gantt-workstreams.is-collapsed {
+  grid-template-rows: 42px;
 }
 
 .gantt-workstream-label {
   height: 42px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 16px;
   color: #64748b;
   font-size: 11px;
   font-weight: 800;
+}
+
+.gantt-workstreams-toggle {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #d8dee8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.gantt-workstreams.is-collapsed .gantt-workstream-label {
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.gantt-workstreams.is-collapsed .gantt-workstream-label span {
+  display: none;
+}
+
+.gantt-workstreams.is-collapsed .gantt-workstreams-toggle {
+  width: 28px;
+  height: 28px;
+}
+
+.gantt-workstreams.is-collapsed .gantt-workstream-section {
+  display: none;
 }
 
 .gantt-workstream-section {
@@ -4530,6 +4570,10 @@ input[type="search"] {
   .page-view-gantt .gantt-app-shell {
     padding-left: 0;
     padding-right: 0;
+  }
+
+  .page-view-gantt .gantt-board {
+    grid-template-columns: var(--gantt-workstream-width, 56px) minmax(0, 1fr);
   }
 
   .page-view-gantt .gantt-title-row {
