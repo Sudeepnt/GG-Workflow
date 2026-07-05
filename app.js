@@ -4,7 +4,7 @@ const tables = [
     title: "Ventures",
     singular: "Venture",
     summary: "Companies, SPVs, clients, partners",
-    listColumns: ["name", "type", "status", "verticals", "date"],
+    listColumns: ["name", "type", "status", "verticals", "created_at"],
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
@@ -39,7 +39,7 @@ const tables = [
     title: "Projects",
     singular: "Project",
     summary: "Execution layers across ventures",
-    listColumns: ["name", "venture", "status", "lead", "target_date"],
+    listColumns: ["name", "venture", "status", "lead", "created_at", "target_date"],
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
       { name: "venture", label: "Venture", type: "text" },
@@ -81,7 +81,7 @@ const tables = [
     title: "Documents/Notes",
     singular: "Document/Note",
     summary: "Notes, files, and agreements",
-    listColumns: ["title", "venture_project", "body", "type", "status", "date"],
+    listColumns: ["title", "venture_project", "body", "type", "status", "created_at"],
     fields: [
       { name: "title", label: "Title", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
@@ -105,7 +105,7 @@ const tables = [
     title: "Assets",
     singular: "Asset",
     summary: "Buildings, land, and units",
-    listColumns: ["name", "type", "status", "owner_ventures", "date"],
+    listColumns: ["name", "type", "status", "owner_ventures", "created_at"],
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
@@ -127,7 +127,7 @@ const tables = [
     title: "Events",
     singular: "Event",
     summary: "Meetings, visits, and calls",
-    listColumns: ["title", "type", "start", "duration", "date"],
+    listColumns: ["title", "type", "start", "duration", "created_at"],
     fields: [
       { name: "title", label: "Title", type: "text", required: true },
       { name: "date", label: "Date", type: "date" },
@@ -148,7 +148,7 @@ const tables = [
     title: "Transactions",
     singular: "Transaction",
     summary: "Receivables, payables, invoices",
-    listColumns: ["reference", "direction", "status", "amount", "due_date"],
+    listColumns: ["reference", "direction", "status", "amount", "created_at", "due_date"],
     fields: [
       { name: "reference", label: "Reference", type: "text", required: true },
       { name: "venture", label: "Venture", type: "select", required: true },
@@ -1782,6 +1782,30 @@ function mapRecordFromSupabase(tableKey, row) {
   };
 }
 
+function isPeopleNameConflict(error) {
+  const message = String(error?.message ?? error?.details ?? "").toLowerCase();
+  return Boolean(
+    error?.code === "23505"
+    || message.includes("people_name_key")
+    || message.includes("duplicate key value")
+  );
+}
+
+async function findSupabasePeopleByName(name) {
+  if (!supabaseClient) return null;
+  const normalizedName = String(name ?? "").trim();
+  if (!normalizedName) return null;
+
+  const { data: rows, error } = await supabaseClient
+    .from("people")
+    .select("*")
+    .eq("name", normalizedName)
+    .limit(1);
+
+  if (error) throw error;
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
 function hydrateDocumentRelationFieldsFromLinks() {
   data.documents = (data.documents ?? []).map((record) => {
     const relatedAssets = getLinkedRecordsFromDocumentLinks(record, "assets").map((row) => String(row?.name ?? "").trim()).filter(Boolean);
@@ -1833,7 +1857,15 @@ async function syncRecordToSupabase(tableKey, record, { mode = "upsert" } = {}) 
   let query = null;
 
   if (mode === "insert") {
-    query = supabaseClient.from(tableKey).insert(payload).select();
+    if (tableKey === "people" && String(payload.name ?? "").trim()) {
+      const existingRemoteRow = await findSupabasePeopleByName(payload.name);
+      if (existingRemoteRow?.id) {
+        query = supabaseClient.from(tableKey).update(payload).eq("id", existingRemoteRow.id).select();
+      }
+    }
+    if (!query) {
+      query = supabaseClient.from(tableKey).insert(payload).select();
+    }
   } else if (mode === "update") {
     query = supabaseClient.from(tableKey).update(payload).eq("id", record.id).select();
   } else {
@@ -1844,7 +1876,18 @@ async function syncRecordToSupabase(tableKey, record, { mode = "upsert" } = {}) 
   }
 
   const { data: rows, error } = await query;
-  if (error) throw error;
+  if (error) {
+    if (tableKey === "people" && mode === "insert" && isPeopleNameConflict(error)) {
+      const existingRemoteRow = await findSupabasePeopleByName(payload.name);
+      if (existingRemoteRow?.id) {
+        const retry = await supabaseClient.from(tableKey).update(payload).eq("id", existingRemoteRow.id).select();
+        if (retry.error) throw retry.error;
+        const retryRow = Array.isArray(retry.data) ? retry.data[0] ?? null : retry.data ?? null;
+        return retryRow ? mapRecordFromSupabase(tableKey, retryRow) : null;
+      }
+    }
+    throw error;
+  }
   const syncedRow = Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
   return syncedRow ? mapRecordFromSupabase(tableKey, syncedRow) : null;
 }
@@ -4832,7 +4875,7 @@ function renderGanttChart() {
     ...eventRows.map((item) => renderBar(item, "event")),
   ];
   const visibleRowCount = gridRows.filter(Boolean).length;
-  const sidebarSection = (title, count, rows, overflowText) => `
+  const sidebarSection = (title, count, rows, overflowText, tableKey = "") => `
     <section class="gantt-workstream-section" style="--gantt-section-row-count:${Math.max(rows.length, 1)};">
       <div class="gantt-workstream-head">
         <strong>${escapeHtml(title)}</strong>
@@ -4847,7 +4890,7 @@ function renderGanttChart() {
             <span>${escapeHtml(row.label)}</span>
           </div>
         `).join("")}
-        ${overflowText ? `<button class="gantt-view-all" type="button">${escapeHtml(overflowText)}</button>` : ""}
+        ${overflowText ? `<button class="gantt-view-all" type="button" data-gantt-view-all="${escapeHtml(tableKey)}">${escapeHtml(overflowText)}</button>` : ""}
       </div>
     </section>
   `;
@@ -4881,9 +4924,9 @@ function renderGanttChart() {
         <div class="gantt-board" style="${columnLineStyle(gridRows.length)}">
           <aside class="gantt-workstreams">
             <div class="gantt-workstream-label">Workstreams</div>
-            ${sidebarSection("Projects", projectRows.length, projectRows, "")}
-            ${sidebarSection("Tasks", taskRows.length, taskRows.slice(0, 5), taskRows.length > 5 ? `View all ${taskRows.length} tasks` : "")}
-            ${sidebarSection("Events", eventRows.length, eventRows.slice(0, 6), eventRows.length > 6 ? `View all ${eventRows.length} events` : "")}
+            ${sidebarSection("Projects", projectRows.length, projectRows, "", "projects")}
+            ${sidebarSection("Tasks", taskRows.length, taskRows.slice(0, 5), taskRows.length > 5 ? `View all ${taskRows.length} tasks` : "", "tasks")}
+            ${sidebarSection("Events", eventRows.length, eventRows.slice(0, 6), eventRows.length > 6 ? `View all ${eventRows.length} events` : "", "events")}
           </aside>
           <main class="gantt-timeline">
             <div class="gantt-timeline-days">
@@ -5119,6 +5162,9 @@ function formatCell(tableKey, column, row) {
   if (tableKey === "documents" && column === "venture_project") {
     return getDocumentLocationLabel(row);
   }
+  if (column === "created_at") {
+    return row?.createdAt ? formatDashboardDate(row.createdAt, true) : "—";
+  }
   const value = row[column];
   if (value == null || value === "") return "—";
   const relation = getRelationConfig(column);
@@ -5128,6 +5174,10 @@ function formatCell(tableKey, column, row) {
   if (isPeopleRelation) {
     if (Array.isArray(value)) return value.map((item) => formatPersonDisplayLabel(item)).filter(Boolean).join(", ");
     return formatPersonDisplayLabel(value) || "—";
+  }
+  const isDateColumn = column === "date" || column.endsWith("_date") || column === "start" || column === "end";
+  if (isDateColumn) {
+    return formatDashboardDate(value, column === "start" || column === "end");
   }
   if (Array.isArray(value)) return formatList(value);
   if (tableKey === "people" && column === "type") return formatList(value);
@@ -5367,7 +5417,7 @@ function renderTaskTitleCell(row, serial, children = [], isChild = false) {
 }
 
 function renderTaskRows(rows) {
-  if (!rows.length) return `<tr class="records-empty-row"><td colspan="7"><div class="records-empty-state">No records</div></td></tr>`;
+  if (!rows.length) return `<tr class="records-empty-row"><td colspan="8"><div class="records-empty-state">No records</div></td></tr>`;
   const { rootRows, childrenByParentId } = buildTaskHierarchy(rows);
 
   return rootRows.map((row, index) => {
@@ -5380,6 +5430,7 @@ function renderTaskRows(rows) {
         <td>${renderCellMarkup("tasks", "status", row)}</td>
         <td>${renderCellMarkup("tasks", "owner", row)}</td>
         <td>${renderCellMarkup("tasks", "priority", row)}</td>
+        <td>${renderCellMarkup("tasks", "created_at", row)}</td>
         <td>${renderCellMarkup("tasks", "due_date", row)}</td>
         <td class="records-actions-cell">
           ${renderRecordActionIconButton("edit", `Edit ${row.title || "task"}`, `data-record-action="edit" data-record-id="${escapeHtml(row.id)}"`)}
@@ -5396,6 +5447,7 @@ function renderTaskRows(rows) {
           <td>${renderCellMarkup("tasks", "status", child)}</td>
           <td>${renderCellMarkup("tasks", "owner", child)}</td>
           <td>${renderCellMarkup("tasks", "priority", child)}</td>
+          <td>${renderCellMarkup("tasks", "created_at", child)}</td>
           <td>${renderCellMarkup("tasks", "due_date", child)}</td>
           <td class="records-actions-cell">
             ${renderRecordActionIconButton("edit", `Edit ${child.title || "task"}`, `data-record-action="edit" data-record-id="${escapeHtml(child.id)}"`)}
@@ -5744,6 +5796,7 @@ function renderRecordsTable(table) {
   const toolbar = renderRecordsToolbar(table, rows, filters, ventureOptions, projectOptions);
   const getColumnHeaderLabel = (column) => {
     if (table.key === "documents" && column === "venture_project") return "venture(project)";
+    if (column === "created_at") return "Created At";
     return titleCaseKey(column);
   };
 
@@ -5770,7 +5823,7 @@ function renderRecordsTable(table) {
   }
 
   const headers = table.key === "tasks"
-    ? `<th class="records-serial-head">S. No.</th><th>Title</th><th>Status</th><th>Owner</th><th>Priority</th><th>Due date</th><th>Actions</th>`
+    ? `<th class="records-serial-head">S. No.</th><th>Title</th><th>Status</th><th>Owner</th><th>Priority</th><th>Created At</th><th>Due date</th><th>Actions</th>`
     : `<th class="records-serial-head">S. No.</th>${table.listColumns.map((column) => `<th>${escapeHtml(getColumnHeaderLabel(column))}</th>`).join("")}<th>Actions</th>`;
   const body = table.key === "tasks" ? renderTaskRows(rows) : renderRecordsBody(table, rows);
   const tableWrapClass = table.key === "transactions"
@@ -7017,6 +7070,10 @@ async function saveRecord() {
   const previousRows = cloneRows(data[table.key] ?? []);
   let nextRecord = null;
   const isEdit = state.modalMode === "edit" && state.editingRecordId;
+  const normalizedPeopleName = table.key === "people" ? String(payload.name ?? "").trim() : "";
+  const existingPeopleRow = !isEdit && table.key === "people" && normalizedPeopleName
+    ? data.people.find((item) => String(item.name ?? "").trim() === normalizedPeopleName) ?? null
+    : null;
 
   if (isEdit && state.editingRecordId) {
     const index = data[table.key].findIndex((item) => item.id === state.editingRecordId);
@@ -7024,6 +7081,9 @@ async function saveRecord() {
       nextRecord = { ...data[table.key][index], ...payload };
       data[table.key][index] = nextRecord;
     }
+  } else if (existingPeopleRow) {
+    nextRecord = { ...existingPeopleRow, ...payload };
+    data[table.key] = (data[table.key] ?? []).map((row) => (row.id === existingPeopleRow.id ? nextRecord : row));
   } else {
     nextRecord = {
       id: `${table.key.slice(0, 3)}_${Date.now()}`,
@@ -7043,7 +7103,9 @@ async function saveRecord() {
   try {
     const syncedRecord = await syncRecordToSupabase(table.key, nextRecord, { mode: isEdit ? "update" : "insert" });
     if (syncedRecord) {
-      data[table.key] = (data[table.key] ?? []).map((row) => (row.id === syncedRecord.id ? syncedRecord : row));
+      data[table.key] = (data[table.key] ?? []).map((row) => (
+        row.id === syncedRecord.id || row.id === nextRecord.id ? syncedRecord : row
+      ));
     }
     await refreshRemoteData({ syncHierarchy: true, render: true });
   } catch (error) {
@@ -7240,6 +7302,25 @@ function bindEvents() {
 
   el.heroPanel.addEventListener("click", (event) => {
     if (event.target instanceof Element) {
+      const ganttViewAllButton = event.target.closest("[data-gantt-view-all]");
+      if (ganttViewAllButton instanceof HTMLElement) {
+        event.stopPropagation();
+        const nextTable = ganttViewAllButton.dataset.ganttViewAll;
+        if (!nextTable) return;
+        state.activeNav = nextTable;
+        state.activeTable = nextTable;
+        state.search = "";
+        state.detailTableKey = null;
+        state.detailRecordId = null;
+        state.detailTreeOpen = false;
+        clearDetailHistory();
+        syncCurrentViewUrl();
+        renderMeta();
+        renderSidebarNav();
+        renderHeroPanel();
+        return;
+      }
+
       const streetViewButton = event.target.closest("[data-asset-map-street-view-id]");
       if (streetViewButton instanceof HTMLElement) {
         event.stopPropagation();
