@@ -1026,6 +1026,7 @@ input[type="search"] {
 }
 
 .gantt-color-violet { color: #8b5cf6; }
+.gantt-color-purple { color: #8b5cf6; }
 .gantt-color-green { color: #10b981; }
 .gantt-color-amber { color: #f59e0b; }
 .gantt-color-red { color: #ef4444; }
@@ -1043,6 +1044,10 @@ input[type="search"] {
   color: #f97316;
   height: 16px;
   line-height: 14px;
+}
+
+.gantt-dot-purple {
+  background: #8b5cf6;
 }
 
 .gantt-zoom-controls {
@@ -4524,6 +4529,39 @@ input[type="search"] {
     margin-top: 0;
   }
 
+  .page-view-gantt .gantt-topbar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 14px 14px 10px;
+    justify-items: start;
+  }
+
+  .page-view-gantt .gantt-title-row {
+    min-height: 0;
+  }
+
+  .page-view-gantt .gantt-toolbar-left {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: 0;
+  }
+
+  .page-view-gantt .gantt-stat-strip {
+    display: none;
+  }
+
+  .page-view-gantt .gantt-date-button {
+    min-width: 0;
+    padding: 0 14px;
+  }
+
+  .page-view-gantt .gantt-arrow-group {
+    height: 34px;
+    grid-template-columns: 32px 32px;
+  }
+
   .records-toolbar {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
@@ -4841,6 +4879,11 @@ input[type="search"] {
 
   .sidebar {
     width: min(88vw, 320px);
+  }
+
+  .page-view-gantt .gantt-topbar {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .attention-card {

@@ -4775,7 +4775,6 @@ function renderGanttChart() {
     : `${visibleDays[0].toLocaleString("en-GB", { month: "short", day: "numeric" })} - ${windowEnd.toLocaleString("en-GB", { month: "short", day: "numeric", year: "numeric" })}`;
   const weekStartKey = getDateOnlyKey(windowStart.toISOString());
   const columnLineStyle = (rowCount) => `--gantt-days: ${visibleDays.length}; --gantt-today-index: ${Math.max(todayIndex, 0)}; --gantt-row-count: ${Math.max(rowCount, 1)}; --gantt-has-today:${todayIndex >= 0 ? 1 : 0};`;
-  const projectColors = ["blue", "violet", "green", "amber", "red", "cyan", "pink", "indigo", "orange", "sky"];
   const getVisibleSpan = (start, end) => {
     if (!start || !end || end < windowStart || start > windowEnd) return null;
     const visibleStart = start < windowStart ? windowStart : start;
@@ -4800,7 +4799,7 @@ function renderGanttChart() {
         label: project.name || project.id,
         start,
         end: end && start && end < start ? start : end,
-        color: projectColors[index % projectColors.length],
+        color: "purple",
       };
     });
   const baseTaskRows = (data.tasks ?? [])
