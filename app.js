@@ -4295,6 +4295,14 @@ function closeMobileNav() {
   applySidebarState();
 }
 
+function closeFormBuilderTableMenu() {
+  const menu = document.querySelector("[data-form-builder-table-menu]");
+  if (!menu) return;
+  menu.classList.remove("is-open");
+  menu.querySelector(".form-builder-table-menu-list")?.setAttribute("hidden", "");
+  document.getElementById("form-builder-table-menu-trigger")?.setAttribute("aria-expanded", "false");
+}
+
 function syncViewportState() {
   const nextIsMobile = window.innerWidth <= MOBILE_BREAKPOINT;
   if (state.isMobileViewport === nextIsMobile) return;
@@ -6460,7 +6468,6 @@ function renderAdminUsersWorkspace() {
     return [user.name, user.email, user.role, user.password]
       .some((value) => String(value ?? "").toLowerCase().includes(query));
   });
-  const currentCount = userAccounts.length;
   const adminUsersStatus = state.adminUserError
     ? `<p class="admin-data-status is-error">${escapeHtml(state.adminUserError)}</p>`
     : state.adminUsersLoading
@@ -6470,10 +6477,6 @@ function renderAdminUsersWorkspace() {
   return `
     <div class="admin-view-shell">
       <div class="records-toolbar admin-workspace-head">
-        <div class="admin-workspace-title">
-          <h2>Users</h2>
-          <span>${currentCount} ${currentCount === 1 ? "user" : "users"}</span>
-        </div>
         <div class="records-toolbar-search">
           <input id="admin-search" class="records-search" type="search" placeholder="Search users..." value="${escapeHtml(state.search)}" />
         </div>
@@ -6701,6 +6704,14 @@ function renderAdminFormBuilder() {
         </div>
       </div>
       ${renderFormBuilderStatus()}
+      <div class="form-builder-editing-patch">
+        <span class="form-builder-editing-icon" aria-hidden="true">${getTableIcon(activeTable.key)}</span>
+        <span class="form-builder-editing-copy">
+          <span>Editing form</span>
+          <strong>${escapeHtml(activeTable.title)}</strong>
+          <small>Manage the structure and fields of this form.</small>
+        </span>
+      </div>
       <div class="form-builder-layout">
         <div class="form-builder-table-list" aria-label="Forms">
           ${configTables.map((table) => `
@@ -8184,6 +8195,7 @@ function bindEvents() {
 
   el.mobileNavButton?.addEventListener("click", () => {
     state.isMobileNavOpen = !state.isMobileNavOpen;
+    if (state.isMobileNavOpen) closeFormBuilderTableMenu();
     applySidebarState();
   });
 
