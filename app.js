@@ -6636,6 +6636,37 @@ function renderFormBuilderField(tableKey, field) {
   `;
 }
 
+function renderFormBuilderTableMenu(configTables, activeTable) {
+  return `
+    <div class="form-builder-table-menu" data-form-builder-table-menu>
+      <button class="form-builder-table-menu-trigger" type="button" id="form-builder-table-menu-trigger" aria-expanded="false" aria-haspopup="listbox">
+        <span class="form-builder-table-menu-icon" aria-hidden="true">${getTableIcon(activeTable.key)}</span>
+        <span class="form-builder-table-menu-label">${escapeHtml(activeTable.title)}</span>
+        <span class="form-builder-table-menu-chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6"></path>
+          </svg>
+        </span>
+      </button>
+      <div class="form-builder-table-menu-list" role="listbox" aria-label="Forms" hidden>
+        ${configTables.map((table) => `
+          <button class="form-builder-table-menu-option ${table.key === activeTable.key ? "is-active" : ""}" type="button" role="option" aria-selected="${table.key === activeTable.key ? "true" : "false"}" data-form-builder-menu-table="${escapeHtml(table.key)}">
+            <span class="form-builder-table-menu-icon" aria-hidden="true">${getTableIcon(table.key)}</span>
+            <span class="form-builder-table-menu-label">${escapeHtml(table.title)}</span>
+            ${table.key === activeTable.key ? `
+              <span class="form-builder-table-menu-check" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m20 6-11 11-5-5"></path>
+                </svg>
+              </span>
+            ` : ""}
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderAdminFormBuilder() {
   const configTables = activeFormConfig.tables;
   const activeTable = configTables.find((table) => table.key === state.formBuilderTableKey) ?? configTables[0];
@@ -6651,8 +6682,22 @@ function renderAdminFormBuilder() {
           <span>${configTables.length} forms · ${enabledFields}/${activeTable.fields.length} fields enabled in ${escapeHtml(activeTable.title)}</span>
         </div>
         <div class="records-toolbar-actions form-builder-actions">
-          <button class="form-builder-secondary-button" type="button" id="reset-form-config-button">Reset defaults</button>
-          <button class="new-record-button form-builder-save-button" type="button" id="save-form-config-button">Save</button>
+          ${renderFormBuilderTableMenu(configTables, activeTable)}
+          <button class="form-builder-secondary-button" type="button" id="reset-form-config-button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+              <path d="M3 4v6h6"></path>
+            </svg>
+            <span>Reset defaults</span>
+          </button>
+          <button class="new-record-button form-builder-save-button" type="button" id="save-form-config-button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <path d="M17 21v-8H7v8"></path>
+              <path d="M7 3v5h8"></path>
+            </svg>
+            <span>Save</span>
+          </button>
         </div>
       </div>
       ${renderFormBuilderStatus()}
@@ -6781,6 +6826,38 @@ function updateFormConfigOption(input) {
 function bindFormBuilderEvents() {
   const builder = document.querySelector(".form-builder");
   if (!builder) return;
+
+  builder.querySelector("[data-form-builder-table-menu]")?.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const trigger = target.closest("#form-builder-table-menu-trigger");
+    const option = target.closest("[data-form-builder-menu-table]");
+    const menu = event.currentTarget;
+    const list = menu.querySelector(".form-builder-table-menu-list");
+
+    if (trigger) {
+      const isOpen = trigger.getAttribute("aria-expanded") === "true";
+      trigger.setAttribute("aria-expanded", String(!isOpen));
+      menu.classList.toggle("is-open", !isOpen);
+      if (list) list.hidden = isOpen;
+      return;
+    }
+
+    if (option) {
+      const tableKey = option.dataset.formBuilderMenuTable;
+      if (!tableKey) return;
+      if (tableKey === state.formBuilderTableKey) {
+        menu.classList.remove("is-open");
+        document.getElementById("form-builder-table-menu-trigger")?.setAttribute("aria-expanded", "false");
+        if (list) list.hidden = true;
+        return;
+      }
+      state.formBuilderTableKey = tableKey;
+      state.formBuilderStatus = "";
+      state.formBuilderError = "";
+      renderHeroPanel();
+    }
+  });
 
   builder.querySelectorAll("[data-form-builder-table]").forEach((button) => {
     button.addEventListener("click", () => {
