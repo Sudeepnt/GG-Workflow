@@ -174,6 +174,7 @@ const FORM_CONFIG_KEY = "default";
 const FORM_CONFIG_VERSION = 1;
 const ADMIN_USERS_TABLE = "admin_users";
 const AUDIT_LOGS_TABLE = "app_audit_logs";
+const SHARE_ROUTE_PARAM = "share";
 const REMOTE_TABLE_KEYS = new Set(tables.map((table) => table.key));
 const APP_SESSION_KEY = "atit.appAuthenticated";
 const supabaseClientFactory = globalThis.supabase?.createClient ?? null;
@@ -1575,6 +1576,17 @@ const state = {
   auditLogs: [],
   auditLogsLoading: false,
   auditLogError: "",
+  recordSharedNotes: {},
+  recordSharedNotesLoading: {},
+  recordSharedNotesError: {},
+  isSharedView: false,
+  sharedToken: "",
+  sharedPassword: "",
+  sharedAuthorKey: "",
+  sharedBundle: null,
+  sharedLoading: false,
+  sharedError: "",
+  sharedTreeOpen: false,
   formBuilderTableKey: "ventures",
   formBuilderStatus: "",
   formBuilderError: "",
@@ -1592,6 +1604,7 @@ let remoteRealtimeChannel = null;
 const MOBILE_BREAKPOINT = 820;
 const GOOGLE_MAPS_API_KEY_STORAGE_KEY = "atit.googleMapsApiKey";
 const APP_SESSION_USER_KEY = "atit.appUserId";
+const SHARED_NOTE_AUTHOR_PREFIX = "atit.sharedNoteAuthor.";
 const REMOTE_REFRESH_DEBOUNCE_MS = 350;
 const googleMapsRuntime = {
   loaderPromise: null,
@@ -2239,6 +2252,214 @@ function mapRecordFromSupabase(tableKey, row) {
     custom_fields: customFields,
     createdAt: created_at ?? null,
   };
+}
+
+function canShareRecord(tableKey) {
+  return tableKey === "ventures" || tableKey === "projects";
+}
+
+function getRecordSharedNotesKey(tableKey, recordId) {
+  return `${tableKey}:${recordId}`;
+}
+
+function normalizeSharedNote(note = {}) {
+  return {
+    id: String(note.id ?? ""),
+    subject: String(note.subject ?? ""),
+    content: String(note.content ?? ""),
+    authorRole: String(note.authorRole ?? note.author_role ?? "Shared user"),
+    createdAt: note.createdAt ?? note.created_at ?? null,
+    canDelete: Boolean(note.canDelete ?? note.can_delete),
+  };
+}
+
+function normalizeSharedBundle(bundle = {}) {
+  const targetTable = String(bundle.targetTable ?? bundle.share?.targetTable ?? "").trim();
+  const normalizedLinked = {};
+  tables.forEach((table) => {
+    const rows = Array.isArray(bundle.linked?.[table.key]) ? bundle.linked[table.key] : [];
+    normalizedLinked[table.key] = rows.map((row) => mapRecordFromSupabase(table.key, row));
+  });
+
+  return {
+    ...bundle,
+    targetTable,
+    target: targetTable ? mapRecordFromSupabase(targetTable, bundle.target ?? {}) : null,
+    linked: normalizedLinked,
+    notes: Array.isArray(bundle.notes) ? bundle.notes.map(normalizeSharedNote) : [],
+  };
+}
+
+function generateSecureToken(byteLength = 32) {
+  const bytes = new Uint8Array(byteLength);
+  globalThis.crypto.getRandomValues(bytes);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function getShareUrl(token) {
+  const url = new URL(globalThis.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set(SHARE_ROUTE_PARAM, token);
+  return url.toString();
+}
+
+function getSharedAuthorKey(token = state.sharedToken) {
+  const storageKey = `${SHARED_NOTE_AUTHOR_PREFIX}${token}`;
+  let value = "";
+  try {
+    value = String(globalThis.localStorage?.getItem(storageKey) ?? "").trim();
+  } catch {
+    value = "";
+  }
+  if (value.length >= 32) return value;
+  value = generateSecureToken(32);
+  try {
+    globalThis.localStorage?.setItem(storageKey, value);
+  } catch {
+    // Keep the runtime key even when storage is unavailable.
+  }
+  return value;
+}
+
+async function createShareLinkForRecord(tableKey, recordId, password = "") {
+  if (!supabaseClient) throw new Error("Supabase client is unavailable. Share link was not created.");
+  if (!canShareRecord(tableKey)) throw new Error("Only Ventures and Projects can be shared.");
+
+  const token = generateSecureToken(32);
+  const actor = getCurrentSidebarUser();
+  const { data: result, error } = await supabaseClient.rpc("create_share_link", {
+    p_token: token,
+    p_target_table: tableKey,
+    p_target_id: recordId,
+    p_password: String(password ?? ""),
+    p_created_by: actor?.name || actor?.email || actor?.id || "System",
+  });
+
+  if (error) throw error;
+  return {
+    ...(isPlainObject(result) ? result : {}),
+    token,
+    url: getShareUrl(token),
+  };
+}
+
+async function fetchRecordSharedNotes(tableKey, recordId) {
+  if (!supabaseClient || !canShareRecord(tableKey) || !recordId) return [];
+  const { data: rows, error } = await supabaseClient.rpc("get_record_shared_notes", {
+    p_target_table: tableKey,
+    p_target_id: recordId,
+  });
+  if (error) throw error;
+  const notes = Array.isArray(rows) ? rows.map(normalizeSharedNote) : [];
+  const key = getRecordSharedNotesKey(tableKey, recordId);
+  state.recordSharedNotes[key] = notes;
+  return notes;
+}
+
+async function ensureRecordSharedNotes(tableKey, recordId) {
+  const key = getRecordSharedNotesKey(tableKey, recordId);
+  if (!canShareRecord(tableKey) || state.recordSharedNotes[key] || state.recordSharedNotesLoading[key]) return;
+  state.recordSharedNotesLoading[key] = true;
+  state.recordSharedNotesError[key] = "";
+  try {
+    await fetchRecordSharedNotes(tableKey, recordId);
+  } catch (error) {
+    console.error("Shared notes load failed", error);
+    state.recordSharedNotesError[key] = `Notes failed to load: ${error?.message ?? "Unknown error"}`;
+  } finally {
+    state.recordSharedNotesLoading[key] = false;
+    if (state.detailTableKey === tableKey && state.detailRecordId === recordId) renderHeroPanel();
+  }
+}
+
+async function loadSharedBundle({ password = state.sharedPassword } = {}) {
+  if (!supabaseClient) {
+    state.sharedError = "Supabase client is unavailable. Shared page cannot load.";
+    state.sharedLoading = false;
+    renderSharedPage();
+    return false;
+  }
+
+  state.sharedLoading = true;
+  state.sharedError = "";
+  renderSharedPage();
+
+  try {
+    const authorKey = state.sharedAuthorKey || getSharedAuthorKey(state.sharedToken);
+    const { data: result, error } = await supabaseClient.rpc("get_shared_bundle", {
+      p_token: state.sharedToken,
+      p_password: password || "",
+      p_author_key: authorKey,
+    });
+    if (error) throw error;
+    if (!result?.ok) {
+      state.sharedBundle = null;
+      state.sharedError = result?.error || "Shared link could not be opened.";
+      state.sharedLoading = false;
+      renderSharedPage();
+      return false;
+    }
+    state.sharedPassword = password || "";
+    state.sharedAuthorKey = authorKey;
+    state.sharedBundle = normalizeSharedBundle(result);
+    applySharedBundleToRuntime(state.sharedBundle);
+    state.sharedLoading = false;
+    renderSharedPage();
+    return true;
+  } catch (error) {
+    console.error("Shared page load failed", error);
+    state.sharedBundle = null;
+    state.sharedError = error?.message ?? "Shared link could not be opened.";
+    state.sharedLoading = false;
+    renderSharedPage();
+    return false;
+  }
+}
+
+function applySharedBundleToRuntime(bundle) {
+  if (!bundle?.targetTable || !bundle.target) return;
+  tables.forEach((table) => {
+    const linkedRows = Array.isArray(bundle.linked?.[table.key]) ? bundle.linked[table.key] : [];
+    data[table.key] = table.key === bundle.targetTable
+      ? [bundle.target, ...linkedRows.filter((row) => row.id !== bundle.target.id)]
+      : linkedRows;
+  });
+  hydrateDocumentRelationFieldsFromLinks();
+  normalizeAllHierarchyData();
+}
+
+async function addSharedNote(subject, content) {
+  if (!supabaseClient) throw new Error("Supabase client is unavailable. Note was not saved.");
+  const { data: result, error } = await supabaseClient.rpc("add_shared_note", {
+    p_token: state.sharedToken,
+    p_password: state.sharedPassword || "",
+    p_author_key: state.sharedAuthorKey || getSharedAuthorKey(state.sharedToken),
+    p_subject: subject,
+    p_content: content,
+  });
+  if (error) throw error;
+  if (!result?.ok) throw new Error(result?.error || "Note was not saved.");
+  await loadSharedBundle({ password: state.sharedPassword });
+  return normalizeSharedNote(result.note);
+}
+
+async function deleteSharedNote(noteId) {
+  if (!supabaseClient) throw new Error("Supabase client is unavailable. Note was not deleted.");
+  const { data: result, error } = await supabaseClient.rpc("delete_shared_note", {
+    p_token: state.sharedToken,
+    p_password: state.sharedPassword || "",
+    p_author_key: state.sharedAuthorKey || getSharedAuthorKey(state.sharedToken),
+    p_note_id: noteId,
+  });
+  if (error) throw error;
+  if (!result?.ok || !result?.deleted) throw new Error("Only the note creator can delete this note.");
+  await loadSharedBundle({ password: state.sharedPassword });
+  return true;
 }
 
 function isPeopleNameConflict(error) {
@@ -4297,6 +4518,49 @@ function getExpandedLinkedGroups(tableKey, record) {
     }));
 }
 
+function renderSharedNotesList(notes = [], { emptyText = "No notes yet.", showDelete = false } = {}) {
+  if (!notes.length) {
+    return `<div class="shared-notes-empty">${escapeHtml(emptyText)}</div>`;
+  }
+
+  return `
+    <div class="shared-notes-list">
+      ${notes.map((note) => `
+        <article class="shared-note-card">
+          <div class="shared-note-head">
+            <div>
+              <h4>${escapeHtml(note.subject || "Untitled note")}</h4>
+              <p>${escapeHtml(note.authorRole || "Shared user")} · ${escapeHtml(note.createdAt ? formatDashboardDate(note.createdAt, true) : "Just now")}</p>
+            </div>
+            ${showDelete && note.canDelete ? `
+              <button class="shared-note-delete" type="button" data-shared-note-delete="${escapeHtml(note.id)}" aria-label="Delete note">Delete</button>
+            ` : ""}
+          </div>
+          <p class="shared-note-content">${escapeHtml(note.content)}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderRecordSharedNotesSection(tableKey, recordId) {
+  if (!canShareRecord(tableKey)) return "";
+  const key = getRecordSharedNotesKey(tableKey, recordId);
+  const notes = state.recordSharedNotes[key] ?? [];
+  const loading = Boolean(state.recordSharedNotesLoading[key]);
+  const error = state.recordSharedNotesError[key] || "";
+
+  return `
+    <section class="detail-linked shared-notes-section">
+      <div class="detail-linked-head">
+        <h3>Notes</h3>
+      </div>
+      ${error ? `<div class="shared-notes-error">${escapeHtml(error)}</div>` : ""}
+      ${loading ? `<div class="shared-notes-empty">Loading notes...</div>` : renderSharedNotesList(notes)}
+    </section>
+  `;
+}
+
 function renderRecordDetail(table, record) {
   const detailIconTone = getDetailIconTone(table.key, record);
   const detailEyebrow = table.key === "tasks" && String(record?.parent_task ?? "").trim()
@@ -4395,6 +4659,7 @@ function renderRecordDetail(table, record) {
           </div>
           <div class="detail-actions">
             <button class="record-action-button" type="button" data-detail-action="tree">${state.detailTreeOpen ? "Hide tree" : "Tree view"}</button>
+            ${canShareRecord(table.key) ? `<button class="record-action-button" type="button" data-detail-action="share">Share</button>` : ""}
             ${renderRecordActionIconButton("edit", "Edit", 'data-detail-action="edit"')}
             ${canArchiveRecord(table.key)
               ? renderRecordActionIconButton(isRecordArchived(record) ? "restore" : "archive", isRecordArchived(record) ? "Restore" : "Archive", `data-detail-action="${isRecordArchived(record) ? "restore" : "archive"}"`)
@@ -4412,6 +4677,7 @@ function renderRecordDetail(table, record) {
             <p class="detail-body-copy">${escapeHtml(documentBody)}</p>
           </section>
         ` : ""}
+        ${renderRecordSharedNotesSection(table.key, record.id)}
         <section class="detail-linked">
           <div class="detail-linked-head">
             <h3>Linked records - auto-assembled</h3>
@@ -4719,10 +4985,353 @@ function renderBoard() {
   });
 }
 
+function closeShareOverlay() {
+  document.querySelector("[data-share-overlay]")?.remove();
+  document.body.classList.remove("modal-open");
+}
+
+function openShareModal(table, record) {
+  if (!canShareRecord(table.key)) return;
+  closeShareOverlay();
+  const label = record.name || record.title || record.reference || table.singular;
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="share-overlay modal open" data-share-overlay aria-hidden="false">
+      <div class="share-dialog" role="dialog" aria-modal="true" aria-labelledby="share-title">
+        <div class="modal-head">
+          <div>
+            <h2 id="share-title">Share ${escapeHtml(label)}</h2>
+            <p>Create a secure read-only link for clients or contractors.</p>
+          </div>
+          <button class="close-button" type="button" data-share-close aria-label="Close">×</button>
+        </div>
+        <div class="share-form">
+          <label>
+            <span>Optional password</span>
+            <input type="password" data-share-password placeholder="Leave empty for no password" autocomplete="new-password" />
+          </label>
+          <button class="save-button" type="button" data-share-generate>Generate share link</button>
+          <p class="form-message" data-share-message aria-live="polite"></p>
+          <div class="share-result" data-share-result hidden>
+            <label>
+              <span>Share link</span>
+              <input type="text" data-share-url readonly />
+            </label>
+            <button class="record-action-button" type="button" data-share-copy>Copy link</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+  document.body.classList.add("modal-open");
+
+  const overlay = document.querySelector("[data-share-overlay]");
+  const message = overlay.querySelector("[data-share-message]");
+  const passwordInput = overlay.querySelector("[data-share-password]");
+  const generateButton = overlay.querySelector("[data-share-generate]");
+  const result = overlay.querySelector("[data-share-result]");
+  const urlInput = overlay.querySelector("[data-share-url]");
+
+  overlay.querySelectorAll("[data-share-close]").forEach((button) => {
+    button.addEventListener("click", closeShareOverlay);
+  });
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeShareOverlay();
+  });
+  generateButton.addEventListener("click", async () => {
+    generateButton.disabled = true;
+    generateButton.textContent = "Generating...";
+    message.textContent = "";
+    try {
+      const share = await createShareLinkForRecord(table.key, record.id, passwordInput.value);
+      urlInput.value = share.url;
+      result.hidden = false;
+      message.textContent = share.hasPassword ? "Password-protected link created." : "Share link created.";
+      await writeAuditLogSafe({
+        action: "share",
+        tableKey: table.key,
+        record,
+        details: { passwordProtected: Boolean(share.hasPassword) },
+      });
+    } catch (error) {
+      console.error("Share link create failed", error);
+      message.textContent = `Share link failed: ${error?.message ?? "Unknown error"}`;
+    } finally {
+      generateButton.disabled = false;
+      generateButton.textContent = "Generate share link";
+    }
+  });
+  overlay.querySelector("[data-share-copy]")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(urlInput.value);
+      message.textContent = "Copied.";
+    } catch {
+      urlInput.select();
+      document.execCommand("copy");
+      message.textContent = "Copied.";
+    }
+  });
+  passwordInput.focus();
+}
+
+function showSharedShell() {
+  el.loginScreen.hidden = true;
+  document.body.classList.add("app-authenticated", "shared-view");
+}
+
+function renderSharedPasswordGate(error = "") {
+  return `
+    <div class="shared-page">
+      <section class="shared-auth-card">
+        <div class="shared-brand">ATit shared page</div>
+        <h1>Password required</h1>
+        <p>This shared record is password protected.</p>
+        <form data-shared-password-form>
+          <input type="password" data-shared-password-input placeholder="Enter password" autocomplete="current-password" />
+          <button class="save-button" type="submit">Open shared page</button>
+        </form>
+        ${error ? `<p class="shared-error">${escapeHtml(error)}</p>` : ""}
+      </section>
+    </div>
+  `;
+}
+
+function renderSharedFieldGrid(table, record) {
+  return getVisibleFields(table).map((field) => {
+    const value = getFieldDisplayValue(field, record);
+    const display = Array.isArray(record?.[field.name]) ? record[field.name].join(", ") : value || "—";
+    return `
+      <div class="detail-field">
+        <div class="detail-field-label">${escapeHtml(field.label)} :</div>
+        <div class="detail-field-value">${escapeHtml(display)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderSharedLinkedGroups(table, record) {
+  const connections = ["ventures", "projects"].includes(table.key)
+    ? getExpandedLinkedGroups(table.key, record)
+    : getRecordConnections(table.key, record);
+
+  if (!connections.length) {
+    return `<div class="detail-empty">No linked records found.</div>`;
+  }
+
+  return `
+    <div class="detail-linked-groups">
+      ${connections.map((connection) => `
+        <div class="detail-linked-group">
+          <div class="detail-linked-group-head">
+            <span class="detail-linked-group-icon" aria-hidden="true">${getTableIcon(connection.key || "")}</span>
+            <span class="detail-linked-group-title">${escapeHtml(connection.label)}</span>
+            <span class="detail-linked-group-count">(${connection.items.length})</span>
+          </div>
+          <div class="detail-linked-list">
+            ${connection.items.map((item, index) => `
+              <div class="linked-record-row linked-record-row-static">
+                <span class="linked-record-serial">${renderSerialNumber(index + 1)}</span>
+                <span class="linked-record-copy">
+                  <span class="linked-record-label">${escapeHtml(item.label)}</span>
+                </span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSharedDetailPage() {
+  const bundle = state.sharedBundle;
+  const table = getTableByKey(bundle?.targetTable);
+  const record = bundle?.target;
+  if (!table || !record) {
+    return `
+      <div class="shared-page">
+        <section class="shared-auth-card">
+          <div class="shared-brand">ATit shared page</div>
+          <h1>Shared record unavailable</h1>
+          <p>The shared record could not be loaded.</p>
+        </section>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="shared-page">
+      <section class="shared-header">
+        <div>
+          <div class="shared-brand">ATit shared page · Read only</div>
+          <h1>${escapeHtml(record.name || record.title || table.singular)}</h1>
+          <p>${escapeHtml(table.singular)} details, linked records, tree view, and notes.</p>
+        </div>
+        <div class="shared-actions">
+          <button class="record-action-button" type="button" data-shared-action="tree">${state.sharedTreeOpen ? "Hide tree" : "Tree view"}</button>
+          <button class="save-button" type="button" data-shared-action="note">Notes</button>
+        </div>
+      </section>
+      <section class="detail-grid shared-detail-grid">
+        ${renderSharedFieldGrid(table, record)}
+      </section>
+      <section class="detail-linked">
+        <div class="detail-linked-head">
+          <h3>${state.sharedTreeOpen ? "Tree view" : "Linked records"}</h3>
+        </div>
+        ${state.sharedTreeOpen ? `<div class="detail-tree">${renderDetailTree(table.key, record)}</div>` : renderSharedLinkedGroups(table, record)}
+      </section>
+      <section class="detail-linked shared-notes-section">
+        <div class="detail-linked-head">
+          <h3>Notes</h3>
+        </div>
+        ${renderSharedNotesList(bundle.notes, { showDelete: true })}
+      </section>
+    </div>
+  `;
+}
+
+function renderSharedPage() {
+  showSharedShell();
+  if (!el.heroPanel) return;
+
+  if (state.sharedLoading) {
+    el.heroPanel.innerHTML = `
+      <div class="shared-page">
+        <section class="shared-auth-card">
+          <div class="shared-brand">ATit shared page</div>
+          <h1>Loading shared page...</h1>
+        </section>
+      </div>
+    `;
+    return;
+  }
+
+  if (!state.sharedBundle && ["password_required", "invalid_password"].includes(state.sharedError)) {
+    el.heroPanel.innerHTML = renderSharedPasswordGate(state.sharedError === "invalid_password" ? "Invalid password." : "");
+    bindSharedPageEvents();
+    return;
+  }
+
+  if (state.sharedError && !state.sharedBundle) {
+    el.heroPanel.innerHTML = `
+      <div class="shared-page">
+        <section class="shared-auth-card">
+          <div class="shared-brand">ATit shared page</div>
+          <h1>Shared link unavailable</h1>
+          <p>${escapeHtml(state.sharedError)}</p>
+        </section>
+      </div>
+    `;
+    return;
+  }
+
+  el.heroPanel.innerHTML = renderSharedDetailPage();
+  bindSharedPageEvents();
+}
+
+function closeSharedNoteModal() {
+  document.querySelector("[data-shared-note-overlay]")?.remove();
+  document.body.classList.remove("modal-open");
+}
+
+function openSharedNoteModal() {
+  closeSharedNoteModal();
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="share-overlay modal open" data-shared-note-overlay aria-hidden="false">
+      <div class="share-dialog" role="dialog" aria-modal="true" aria-labelledby="shared-note-title">
+        <div class="modal-head">
+          <div>
+            <h2 id="shared-note-title">Add note</h2>
+            <p>Shared users can add notes, but cannot edit main records.</p>
+          </div>
+          <button class="close-button" type="button" data-shared-note-close aria-label="Close">×</button>
+        </div>
+        <form class="share-form" data-shared-note-form>
+          <label>
+            <span>Subject</span>
+            <input type="text" data-shared-note-subject required maxlength="180" />
+          </label>
+          <label>
+            <span>Content</span>
+            <textarea data-shared-note-content required rows="5" maxlength="5000"></textarea>
+          </label>
+          <button class="save-button" type="submit">Submit note</button>
+          <p class="form-message" data-shared-note-message aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  `);
+  document.body.classList.add("modal-open");
+  const overlay = document.querySelector("[data-shared-note-overlay]");
+  overlay.querySelector("[data-shared-note-subject]")?.focus();
+  overlay.querySelectorAll("[data-shared-note-close]").forEach((button) => {
+    button.addEventListener("click", closeSharedNoteModal);
+  });
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeSharedNoteModal();
+  });
+  overlay.querySelector("[data-shared-note-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = overlay.querySelector("[data-shared-note-message]");
+    const submitButton = overlay.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Saving...";
+    message.textContent = "";
+    try {
+      await addSharedNote(
+        overlay.querySelector("[data-shared-note-subject]").value,
+        overlay.querySelector("[data-shared-note-content]").value,
+      );
+      closeSharedNoteModal();
+    } catch (error) {
+      console.error("Shared note save failed", error);
+      message.textContent = `Note failed: ${error?.message ?? "Unknown error"}`;
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Submit note";
+    }
+  });
+}
+
+function bindSharedPageEvents() {
+  el.heroPanel.querySelector("[data-shared-password-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const password = el.heroPanel.querySelector("[data-shared-password-input]")?.value ?? "";
+    await loadSharedBundle({ password });
+  });
+  el.heroPanel.querySelectorAll("[data-shared-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.sharedAction;
+      if (action === "tree") {
+        state.sharedTreeOpen = !state.sharedTreeOpen;
+        renderSharedPage();
+      }
+      if (action === "note") {
+        openSharedNoteModal();
+      }
+    });
+  });
+  el.heroPanel.querySelectorAll("[data-shared-note-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const approved = await openConfirmDialog({
+        title: "Delete note?",
+        message: "Delete your note from this shared record?",
+        confirmLabel: "Delete",
+      });
+      if (!approved) return;
+      try {
+        await deleteSharedNote(button.dataset.sharedNoteDelete);
+      } catch (error) {
+        window.alert(error?.message ?? "Note delete failed.");
+      }
+    });
+  });
+}
+
 function renderLoginScreen(message = "") {
   if (!el.loginScreen) return;
   el.loginScreen.hidden = false;
-  document.body.classList.remove("app-authenticated");
+  document.body.classList.remove("app-authenticated", "shared-view");
   if (el.loginError) el.loginError.textContent = message;
   if (el.loginPassword) {
     el.loginPassword.value = "";
@@ -4734,6 +5343,7 @@ function showAppShell() {
   if (!el.loginScreen) return;
   el.loginScreen.hidden = true;
   document.body.classList.add("app-authenticated");
+  document.body.classList.remove("shared-view");
 }
 
 async function loginApp(password) {
@@ -4943,6 +5553,7 @@ function getCurrentViewHref() {
 }
 
 function syncCurrentViewUrl(replace = false) {
+  if (state.isSharedView) return;
   const nextUrl = getCurrentViewHref();
   const currentUrl = `${window.location.pathname}${window.location.search}`;
   if (nextUrl === currentUrl) return;
@@ -4996,6 +5607,18 @@ function getGanttViewHref(startDate) {
 
 function applyUrlState() {
   const params = new URLSearchParams(window.location.search);
+  const shareToken = String(params.get(SHARE_ROUTE_PARAM) ?? "").trim();
+  state.isSharedView = Boolean(shareToken);
+  state.sharedToken = shareToken;
+  if (state.isSharedView) {
+    state.activeNav = "shared";
+    state.detailTableKey = null;
+    state.detailRecordId = null;
+    state.detailTreeOpen = false;
+    clearDetailHistory();
+    return;
+  }
+
   const view = params.get("view");
   const gantt = params.get("gantt");
   const scale = params.get("scale");
@@ -6641,6 +7264,7 @@ function renderHeroPanel() {
   if (detail && (detail.table.key === state.activeNav || state.activeNav === "gantt")) {
     el.heroPanel.innerHTML = renderRecordDetail(detail.table, detail.record);
     restoreDetailTreeScroll();
+    ensureRecordSharedNotes(detail.table.key, detail.record.id);
     el.heroPanel.querySelectorAll("[data-detail-action]").forEach((button) => {
       button.addEventListener("click", async () => {
         const action = button.dataset.detailAction;
@@ -6649,6 +7273,9 @@ function renderHeroPanel() {
           return;
         }
         if (action === "edit") openForm(detail.table.key, detail.record.id);
+        if (action === "share") {
+          openShareModal(detail.table, detail.record);
+        }
         if (action === "delete") {
           const deleted = await deleteRecord(detail.table.key, detail.record.id);
           if (deleted) {
@@ -6858,6 +7485,7 @@ function getAuditActionLabel(action) {
     delete: "Deleted",
     archive: "Archived",
     restore: "Restored",
+    share: "Shared",
     add_user: "Added user",
     edit_user: "Edited user",
     delete_user: "Deleted user",
@@ -9137,6 +9765,11 @@ function bindEvents() {
 
   window.addEventListener("popstate", () => {
     applyUrlState();
+    if (state.isSharedView) {
+      state.sharedBundle = null;
+      loadSharedBundle();
+      return;
+    }
     renderMeta();
     renderSidebarNav();
     renderHeroPanel();
@@ -9161,15 +9794,21 @@ function bindEvents() {
   });
 
   window.addEventListener("resize", syncViewportState);
-  window.addEventListener("focus", () => scheduleRemoteRefresh({ syncHierarchy: true, render: true }));
+  window.addEventListener("focus", () => {
+    if (!state.isSharedView) scheduleRemoteRefresh({ syncHierarchy: true, render: true });
+  });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
+    if (!state.isSharedView && document.visibilityState === "visible") {
       scheduleRemoteRefresh({ syncHierarchy: true, render: true });
     }
   });
 }
 
 function renderAll() {
+  if (state.isSharedView) {
+    renderSharedPage();
+    return;
+  }
   if (!state.isAuthenticated) {
     renderLoginScreen(el.loginError?.textContent ?? "");
     return;
@@ -9215,6 +9854,12 @@ async function init() {
   applyUrlState();
   state.isMobileViewport = window.innerWidth <= MOBILE_BREAKPOINT;
   bindEvents();
+  if (state.isSharedView) {
+    state.sharedAuthorKey = getSharedAuthorKey(state.sharedToken);
+    showSharedShell();
+    await loadSharedBundle();
+    return;
+  }
   try {
     await refreshAdminUsersFromSupabase();
   } catch (error) {

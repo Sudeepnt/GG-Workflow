@@ -27,8 +27,25 @@ body.app-authenticated #login-screen {
   display: none;
 }
 
+body.shared-view #login-screen {
+  display: none;
+}
+
 body:not(.app-authenticated) .app-shell {
   display: none;
+}
+
+body.shared-view .layout {
+  grid-template-columns: 1fr;
+}
+
+body.shared-view .sidebar,
+body.shared-view .mobile-topbar {
+  display: none;
+}
+
+body.shared-view .content {
+  padding: 22px;
 }
 
 body.modal-open {
@@ -3498,6 +3515,10 @@ input[type="search"] {
   background: transparent;
 }
 
+.linked-record-row-static {
+  cursor: default;
+}
+
 .linked-record-serial {
   width: 28px;
   height: 28px;
@@ -3529,6 +3550,75 @@ input[type="search"] {
   line-height: 1.5;
   color: var(--muted);
   white-space: normal;
+}
+
+.shared-notes-section {
+  gap: 12px;
+}
+
+.shared-notes-list {
+  display: grid;
+  gap: 10px;
+}
+
+.shared-note-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.shared-note-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shared-note-head h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.shared-note-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shared-note-content {
+  margin: 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.shared-note-delete {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.shared-notes-empty,
+.shared-notes-error {
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  padding: 14px;
+  font-size: 14px;
+}
+
+.shared-notes-error {
+  border-style: solid;
+  color: #b42318;
+  background: #fff7f5;
 }
 
 .detail-empty {
@@ -4662,6 +4752,134 @@ input[type="search"] {
   gap: 18px;
   padding: 22px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.share-dialog {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+  display: grid;
+  gap: 18px;
+}
+
+.share-form {
+  display: grid;
+  gap: 14px;
+}
+
+.share-form label,
+.share-result label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.share-form input,
+.share-form textarea,
+.share-result input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  font: inherit;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.share-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.shared-page {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.shared-header,
+.shared-auth-card {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(191, 238, 240, 0.55), transparent 34%),
+    #ffffff;
+  padding: 24px;
+}
+
+.shared-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.shared-brand {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shared-header h1,
+.shared-auth-card h1 {
+  margin: 8px 0 8px;
+  font-size: clamp(28px, 4vw, 48px);
+  letter-spacing: -0.04em;
+}
+
+.shared-header p,
+.shared-auth-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.shared-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.shared-detail-grid {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.shared-auth-card {
+  width: min(520px, 100%);
+  margin: 12vh auto 0;
+  display: grid;
+  gap: 14px;
+}
+
+.shared-auth-card form {
+  display: grid;
+  gap: 10px;
+}
+
+.shared-auth-card input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  font: inherit;
+}
+
+.shared-error {
+  color: #b42318 !important;
 }
 
 .confirm-head h2 {
