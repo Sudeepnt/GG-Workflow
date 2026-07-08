@@ -827,7 +827,7 @@ input[type="search"] {
 .gantt-workstream-filters {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
 
 .gantt-workstream-filter {
@@ -4142,6 +4142,7 @@ input[type="search"] {
 }
 
 .form-builder-card,
+.form-builder-add-field-card,
 .form-builder-field {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -4149,7 +4150,8 @@ input[type="search"] {
   overflow: hidden;
 }
 
-.form-builder-card {
+.form-builder-card,
+.form-builder-add-field-card {
   padding: 14px;
 }
 
@@ -4349,6 +4351,26 @@ input[type="search"] {
   line-height: 1;
   cursor: pointer;
   flex: 0 0 auto;
+}
+
+.form-builder-add-field-button,
+.form-builder-delete-field-button {
+  border: 1px solid #111111;
+  border-radius: 8px;
+  background: #111111;
+  color: #ffffff;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.form-builder-delete-field-button {
+  justify-self: start;
+  border-color: #fecaca;
+  background: #fff5f5;
+  color: #a11d1d;
 }
 
 .form-builder-options-note {
@@ -5694,13 +5716,15 @@ input[type="search"] {
   }
 
   .page-view-admin .form-builder-card,
+  .page-view-admin .form-builder-add-field-card,
   .page-view-admin .form-builder-field {
     border-radius: 0;
     border-left: 0;
     border-right: 0;
   }
 
-  .page-view-admin .form-builder-card {
+  .page-view-admin .form-builder-card,
+  .page-view-admin .form-builder-add-field-card {
     padding: 8px 0;
   }
 
