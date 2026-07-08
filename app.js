@@ -1503,23 +1503,25 @@ const relationFields = {
 };
 
 const jsonColumnDefaults = {
-  ventures: { verticals: [], tags: [] },
-  tasks: { assignees: [], depends_on: [] },
-  documents: { links: [], related_assets: [], related_events: [], related_transactions: [], tags: [] },
-  assets: { owner_ventures: [] },
-  events: { participants: [] },
-  transactions: { documents: [] },
+  ventures: { verticals: [], tags: [], custom_fields: {} },
+  people: { custom_fields: {} },
+  projects: { custom_fields: {} },
+  tasks: { assignees: [], depends_on: [], custom_fields: {} },
+  documents: { links: [], related_assets: [], related_events: [], related_transactions: [], tags: [], custom_fields: {} },
+  assets: { owner_ventures: [], custom_fields: {} },
+  events: { participants: [], custom_fields: {} },
+  transactions: { documents: [], custom_fields: {} },
 };
 
 const remoteTableColumns = {
-  ventures: ["id", "name", "date", "type", "status", "verticals", "entity_form", "reg_no", "primary_contact", "tags", "created_at"],
-  people: ["id", "name", "email", "phone", "venture", "type", "role_title", "status", "access_level", "created_at"],
-  projects: ["id", "name", "venture", "vertical", "type", "asset", "stage", "status", "start_date", "target_date", "lead", "client_shareable", "created_at"],
-  tasks: ["id", "title", "venture", "project", "parent_task", "status", "priority", "owner", "assignees", "depends_on", "due_date", "estimate", "time_logged", "external_shared_with", "created_at"],
-  documents: ["id", "title", "date", "venture", "project", "task", "type", "body", "file_ref", "version", "status", "links", "permission", "tags", "created_at"],
-  assets: ["id", "name", "date", "venture", "project", "task", "type", "address", "lat", "lng", "area", "unit", "owner_ventures", "status", "created_at"],
-  events: ["id", "title", "type", "venture", "project", "task", "date", "start", "end", "participants", "location", "summary", "calendar_ref", "created_at"],
-  transactions: ["id", "reference", "venture", "project", "task", "direction", "amount", "currency", "status", "counterparty", "project_asset", "due_date", "documents", "created_at"],
+  ventures: ["id", "name", "date", "type", "status", "verticals", "entity_form", "reg_no", "primary_contact", "tags", "custom_fields", "created_at"],
+  people: ["id", "name", "email", "phone", "venture", "type", "role_title", "status", "access_level", "custom_fields", "created_at"],
+  projects: ["id", "name", "venture", "vertical", "type", "asset", "stage", "status", "start_date", "target_date", "lead", "client_shareable", "custom_fields", "created_at"],
+  tasks: ["id", "title", "venture", "project", "parent_task", "status", "priority", "owner", "assignees", "depends_on", "due_date", "estimate", "time_logged", "external_shared_with", "custom_fields", "created_at"],
+  documents: ["id", "title", "date", "venture", "project", "task", "type", "body", "file_ref", "version", "status", "links", "permission", "tags", "custom_fields", "created_at"],
+  assets: ["id", "name", "date", "venture", "project", "task", "type", "address", "lat", "lng", "area", "unit", "owner_ventures", "status", "custom_fields", "created_at"],
+  events: ["id", "title", "type", "venture", "project", "task", "date", "start", "end", "participants", "location", "summary", "calendar_ref", "custom_fields", "created_at"],
+  transactions: ["id", "reference", "venture", "project", "task", "direction", "amount", "currency", "status", "counterparty", "project_asset", "due_date", "documents", "custom_fields", "created_at"],
 };
 
 const sidebarItems = [
@@ -1550,6 +1552,55 @@ function normalizeOptionList(options = []) {
       .map((option) => String(option ?? "").trim())
       .filter(Boolean),
   ));
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function createFieldKey(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_{2,}/g, "_");
+}
+
+function getDefaultFieldNameSet(tableKey) {
+  const defaultTable = defaultFormConfig.tables.find((table) => table.key === tableKey);
+  return new Set((defaultTable?.fields ?? []).map((field) => field.name));
+}
+
+function getCustomFieldNames(tableKey) {
+  const defaultNames = getDefaultFieldNameSet(tableKey);
+  const table = tables.find((item) => item.key === tableKey);
+  return new Set((table?.fields ?? [])
+    .filter((field) => field.custom === true || !defaultNames.has(field.name))
+    .map((field) => field.name));
+}
+
+function normalizeCustomFieldConfig(field = {}, existingNames = new Set()) {
+  const rawLabel = String(field.label ?? "").trim();
+  const rawName = createFieldKey(field.name || rawLabel);
+  if (!rawLabel || !rawName || existingNames.has(rawName)) return null;
+  const type = editableFieldTypes.includes(field.type) ? field.type : "text";
+  const normalized = {
+    name: rawName,
+    label: rawLabel,
+    type,
+    required: Boolean(field.required),
+    enabled: field.enabled !== false,
+    custom: true,
+  };
+
+  ["placeholder", "value"].forEach((key) => {
+    const value = String(field[key] ?? "").trim();
+    if (value) normalized[key] = value;
+  });
+
+  if (type === "select") normalized.options = normalizeOptionList(field.options);
+  return normalized;
 }
 
 function createDefaultFormConfig() {
@@ -1599,12 +1650,24 @@ function mergeFormConfig(config = {}) {
   defaults.tables = defaults.tables.map((table) => {
     const overrideTable = overrideTables.get(table.key) ?? {};
     const overrideFields = new Map((Array.isArray(overrideTable.fields) ? overrideTable.fields : []).map((field) => [field.name, field]));
+    const defaultFieldNames = new Set(table.fields.map((field) => field.name));
+    const mergedFields = table.fields.map((field) => mergeFieldConfig(field, overrideFields.get(field.name)));
+    const existingFieldNames = new Set(defaultFieldNames);
+    const customFields = (Array.isArray(overrideTable.fields) ? overrideTable.fields : [])
+      .filter((field) => !defaultFieldNames.has(field.name))
+      .map((field) => {
+        const normalizedField = normalizeCustomFieldConfig(field, existingFieldNames);
+        if (normalizedField) existingFieldNames.add(normalizedField.name);
+        return normalizedField;
+      })
+      .filter(Boolean);
+
     return {
       ...table,
       title: String(overrideTable.title ?? table.title).trim() || table.title,
       singular: String(overrideTable.singular ?? table.singular).trim() || table.singular,
       summary: String(overrideTable.summary ?? table.summary ?? "").trim(),
-      fields: table.fields.map((field) => mergeFieldConfig(field, overrideFields.get(field.name))),
+      fields: [...mergedFields, ...customFields],
     };
   });
 
@@ -1978,6 +2041,15 @@ function mapRecordToSupabase(tableKey, record) {
   const normalized = Object.fromEntries(
     Object.entries(rest).map(([column, value]) => [column, value === "" ? null : value]),
   );
+  const customFieldNames = getCustomFieldNames(tableKey);
+  const customFields = isPlainObject(normalized.custom_fields) ? { ...normalized.custom_fields } : {};
+  customFieldNames.forEach((fieldName) => {
+    if (Object.hasOwn(normalized, fieldName)) {
+      customFields[fieldName] = normalized[fieldName];
+      delete normalized[fieldName];
+    }
+  });
+  normalized.custom_fields = customFields;
   if (tableKey === "documents") {
     const mergedLinks = [
       ...(Array.isArray(normalized.links) ? normalized.links : []),
@@ -2006,9 +2078,12 @@ function mapRecordToSupabase(tableKey, record) {
 }
 
 function mapRecordFromSupabase(tableKey, row) {
-  const { created_at, ...rest } = row;
+  const { created_at, custom_fields, ...rest } = row;
+  const customFields = isPlainObject(custom_fields) ? custom_fields : {};
   return {
     ...rest,
+    ...customFields,
+    custom_fields: customFields,
     createdAt: created_at ?? null,
   };
 }
@@ -6591,8 +6666,55 @@ function renderFormBuilderOptions(tableKey, field) {
   `;
 }
 
+function renderNewCustomFieldCard(activeTable) {
+  return `
+    <div class="form-builder-add-field-card">
+      <div class="form-builder-card-head">
+        <div>
+          <h3>Add new field</h3>
+          <p>Adds a custom field to ${escapeHtml(activeTable.title)} and stores its values in Supabase.</p>
+        </div>
+      </div>
+      <div class="form-builder-grid">
+        <label>
+          <span>Field label</span>
+          <input type="text" value="" placeholder="Example: GST number" data-new-field-label />
+        </label>
+        <label>
+          <span>Column key</span>
+          <input type="text" value="" placeholder="Example: gst_number" data-new-field-name />
+        </label>
+        <label>
+          <span>Field type</span>
+          <select data-new-field-type>
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="select">Dropdown</option>
+            <option value="date">Date</option>
+            <option value="datetime-local">Date & time</option>
+            <option value="textarea">Long text</option>
+            <option value="checkbox">Checkbox</option>
+            <option value="email">Email</option>
+            <option value="tel">Phone</option>
+          </select>
+        </label>
+        <label>
+          <span>Dropdown options</span>
+          <input type="text" value="" placeholder="Option 1, Option 2" data-new-field-options />
+        </label>
+        <button class="form-builder-add-field-button form-builder-wide" type="button" data-add-custom-field data-table-key="${escapeHtml(activeTable.key)}">
+          + Add field to ${escapeHtml(activeTable.title)}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderFormBuilderField(tableKey, field) {
   const enabled = field.enabled !== false;
+  const deleteButton = field.custom === true
+    ? `<button class="form-builder-delete-field-button" type="button" data-delete-custom-field data-table-key="${escapeHtml(tableKey)}" data-field-name="${escapeHtml(field.name)}">Delete field</button>`
+    : "";
   return `
     <details class="form-builder-field ${enabled ? "" : "is-disabled"}" open>
       <summary>
@@ -6634,6 +6756,7 @@ function renderFormBuilderField(tableKey, field) {
           </label>
         </div>
         ${renderFormBuilderOptions(tableKey, field)}
+        ${deleteButton}
       </div>
     </details>
   `;
@@ -6722,6 +6845,7 @@ function renderAdminFormBuilder() {
           `).join("")}
         </div>
         <div class="form-builder-editor" data-active-form-table="${escapeHtml(activeTable.key)}">
+          ${renderNewCustomFieldCard(activeTable)}
           <div class="form-builder-card">
             <div class="form-builder-card-head">
               <div>
@@ -6834,6 +6958,117 @@ function updateFormConfigOption(input) {
   field.options[optionIndex] = input.value;
 }
 
+function createUniqueCustomFieldName(tableConfig, requestedName, label) {
+  const baseName = createFieldKey(requestedName || label);
+  if (!baseName) return "";
+  const existingNames = new Set((tableConfig.fields ?? []).map((field) => field.name));
+  let fieldName = baseName;
+  let suffix = 2;
+  while (existingNames.has(fieldName)) {
+    fieldName = `${baseName}_${suffix}`;
+    suffix += 1;
+  }
+  return fieldName;
+}
+
+function parseNewFieldOptions(value) {
+  return normalizeOptionList(String(value ?? "").split(/[\n,]+/));
+}
+
+async function addCustomFormBuilderField(button) {
+  const tableKey = button.dataset.tableKey;
+  const tableConfig = getFormConfigTable(tableKey);
+  const card = button.closest(".form-builder-add-field-card");
+  if (!tableConfig || !card) return;
+
+  const label = String(card.querySelector("[data-new-field-label]")?.value ?? "").trim();
+  const requestedName = String(card.querySelector("[data-new-field-name]")?.value ?? "").trim();
+  const type = String(card.querySelector("[data-new-field-type]")?.value ?? "text").trim();
+  const options = parseNewFieldOptions(card.querySelector("[data-new-field-options]")?.value);
+  const fieldName = createUniqueCustomFieldName(tableConfig, requestedName, label);
+
+  if (!label) {
+    state.formBuilderError = "Enter a field label before adding a field.";
+    state.formBuilderStatus = "";
+    renderHeroPanel();
+    return;
+  }
+
+  if (!fieldName) {
+    state.formBuilderError = "Enter a valid column key. Use letters, numbers, and underscores.";
+    state.formBuilderStatus = "";
+    renderHeroPanel();
+    return;
+  }
+
+  if (!editableFieldTypes.includes(type)) {
+    state.formBuilderError = "Choose a valid field type.";
+    state.formBuilderStatus = "";
+    renderHeroPanel();
+    return;
+  }
+
+  const previousConfig = cloneJson(activeFormConfig);
+  const nextField = {
+    name: fieldName,
+    label,
+    type,
+    enabled: true,
+    required: false,
+    custom: true,
+  };
+  if (type === "select") nextField.options = options;
+
+  tableConfig.fields.push(nextField);
+  state.formBuilderStatus = `Adding ${label} to Supabase...`;
+  state.formBuilderError = "";
+  renderHeroPanel();
+
+  try {
+    await saveFormConfigToSupabase(activeFormConfig);
+    state.formBuilderStatus = `${label} added and saved to Supabase.`;
+    state.formBuilderError = "";
+  } catch (error) {
+    console.error("Supabase custom field add failed", error);
+    activeFormConfig = previousConfig;
+    applyFormConfig(previousConfig);
+    state.formBuilderStatus = "";
+    state.formBuilderError = `Supabase is not taking this field: ${error?.message ?? "Unknown error"}`;
+  }
+
+  renderHeroPanel();
+}
+
+async function deleteCustomFormBuilderField(button) {
+  const tableKey = button.dataset.tableKey;
+  const fieldName = button.dataset.fieldName;
+  const tableConfig = getFormConfigTable(tableKey);
+  const field = getFormConfigField(tableKey, fieldName);
+  if (!tableConfig || !field || field.custom !== true) return;
+  const approved = window.confirm(`Delete custom field "${field.label || field.name}" from this form? Existing record values stay in Supabase custom_fields but the field will no longer show in the form.`);
+  if (!approved) return;
+
+  const previousConfig = cloneJson(activeFormConfig);
+  tableConfig.fields = tableConfig.fields.filter((item) => item.name !== fieldName);
+  state.formBuilderStatus = `Deleting ${field.label || field.name} from Supabase...`;
+  state.formBuilderError = "";
+  renderHeroPanel();
+
+  try {
+    await saveFormConfigToSupabase(activeFormConfig);
+    state.formBuilderStatus = `${field.label || field.name} deleted and saved to Supabase.`;
+    state.formBuilderError = "";
+  } catch (error) {
+    console.error("Supabase custom field delete failed", error);
+    activeFormConfig = previousConfig;
+    applyFormConfig(previousConfig);
+    state.formBuilderStatus = "";
+    state.formBuilderError = `Supabase is not taking this field delete: ${error?.message ?? "Unknown error"}`;
+  }
+
+  renderHeroPanel();
+}
+
 function bindFormBuilderEvents() {
   const builder = document.querySelector(".form-builder");
   if (!builder) return;
@@ -6913,6 +7148,18 @@ function bindFormBuilderEvents() {
       if (!field || !Array.isArray(field.options) || !Number.isInteger(optionIndex)) return;
       field.options.splice(optionIndex, 1);
       renderHeroPanel();
+    });
+  });
+
+  builder.querySelector("[data-add-custom-field]")?.addEventListener("click", (event) => {
+    if (event.currentTarget instanceof HTMLButtonElement) {
+      addCustomFormBuilderField(event.currentTarget);
+    }
+  });
+
+  builder.querySelectorAll("[data-delete-custom-field]").forEach((button) => {
+    button.addEventListener("click", () => {
+      deleteCustomFormBuilderField(button);
     });
   });
 
