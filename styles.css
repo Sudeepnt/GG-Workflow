@@ -157,10 +157,10 @@ body.app-mobile {
 
 .layout {
   display: grid;
-  grid-template-columns: 201px minmax(0, 1fr);
+  grid-template-columns: 244px minmax(0, 1fr);
   min-height: 100vh;
   transition: grid-template-columns 0.18s ease;
-  --sidebar-width: 201px;
+  --sidebar-width: 244px;
 }
 
 .layout.sidebar-collapsed {
@@ -5308,7 +5308,7 @@ input[type="search"] {
 
 @media (max-width: 1100px) {
   .layout {
-    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-columns: 228px minmax(0, 1fr);
   }
 
   .layout.sidebar-collapsed {
