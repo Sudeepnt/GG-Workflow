@@ -8700,7 +8700,7 @@ function renderDurationField(field, record = null) {
           placeholder="0"
         />
         <select name="${escapeHtml(field.name)}_unit">
-          ${durationUnits.map((option) => `<option value="${option.value}" ${unit === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+          ${sortOptionsAlpha(durationUnits).map((option) => `<option value="${option.value}" ${unit === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
         </select>
       </div>
       <small class="form-hint">${hint}</small>
@@ -8738,7 +8738,7 @@ function renderInlinePrimaryContactPersonFields() {
           }
 
           if (field.type === "select") {
-            const options = field.options ?? [];
+            const options = sortStringsAlpha(field.options ?? []);
             return `
               <label class="form-field">
                 <span>${label}</span>
@@ -8924,7 +8924,7 @@ function renderField(field, record = null, currentTableKey = "") {
   }
 
   if (field.type === "select") {
-    const fieldOptions = field.options ?? [];
+    const fieldOptions = sortStringsAlpha(field.options ?? []);
     return `
       <label class="form-field">
         <span>${label}</span>
@@ -9196,7 +9196,7 @@ function bindHierarchyFilters(record = null) {
 
     const selectedTask = taskSelect.value.trim();
     const selectedProject = projectSelect.value.trim();
-    const options = getRelationOptions("task", state.activeTable, record);
+    const options = sortOptionsAlpha(getRelationOptions("task", state.activeTable, record));
 
     taskSelect.innerHTML = [
       `<option value="">${escapeHtml(selectedProject ? "Select task" : "Select project first")}</option>`,
@@ -9224,7 +9224,7 @@ function bindHierarchyFilters(record = null) {
 
     const selectedParentTask = parentTaskSelect.value.trim();
     const selectedProject = projectSelect.value.trim();
-    const options = getRelationOptions("parent_task", state.activeTable, record);
+    const options = sortOptionsAlpha(getRelationOptions("parent_task", state.activeTable, record));
 
     parentTaskSelect.innerHTML = [
       `<option value="">${escapeHtml(selectedProject ? "Select parent task" : "Select project first")}</option>`,
@@ -9249,7 +9249,7 @@ function bindHierarchyFilters(record = null) {
   const syncProjectOptions = () => {
     const selectedProject = projectSelect.value.trim();
     const selectedVenture = ventureSelect.value.trim();
-    const options = getRelationOptions("project", state.activeTable, record);
+    const options = sortOptionsAlpha(getRelationOptions("project", state.activeTable, record));
 
     projectSelect.innerHTML = [
       `<option value="">${escapeHtml(selectedVenture ? "Select project" : "Select venture first")}</option>`,
