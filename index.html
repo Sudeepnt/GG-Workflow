@@ -3,19 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Gattabara Games Operating System</title>
-    <link rel="stylesheet" href="styles.css?v=20260704-1229" />
+    <title>Gattabara Games Workflow</title>
+    <link rel="stylesheet" href="styles.css?v=20260711-gg2" />
   </head>
-  <body>
+  <body class="app-booting">
     <div id="login-screen" class="login-screen">
       <div class="login-card">
-        <img class="login-logo" src="logo1black%20copy.png" alt="Gattabara Games" />
+        <img class="login-logo" src="gattabara-logo.png?v=20260711-gg2" alt="Gattabara Games" />
         <form id="login-form" class="login-form" autocomplete="off">
           <label class="login-field">
             <span>Password</span>
-            <input id="login-password" name="password" type="text" value="admin1234" placeholder="Enter password" required />
+            <span class="login-password-wrap">
+              <input id="login-password" name="password" type="password" placeholder="Enter password" required />
+              <button id="login-password-toggle" class="login-password-toggle" type="button" aria-label="Show password" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M1.5 12s3.8-6 10.5-6 10.5 6 10.5 6-3.8 6-10.5 6S1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
+                </svg>
+              </button>
+            </span>
           </label>
-          <p class="login-hint">Test password: <strong>admin1234</strong></p>
           <button class="login-button" type="submit">Login</button>
           <p id="login-error" class="login-error" aria-live="polite"></p>
         </form>
@@ -29,7 +36,7 @@
             <div class="sidebar-brand">
               <div class="sidebar-brand-row">
                 <button id="home-button" class="sidebar-title sidebar-home-button" type="button" aria-label="Go to dashboard">
-                  <img class="sidebar-logo" src="logo1black%20copy.png" alt="Gattabara Games" />
+                  <img class="sidebar-logo" src="gattabara-logo.png?v=20260711-gg2" alt="Gattabara Games" />
                 </button>
                 <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true"></button>
               </div>
@@ -46,7 +53,7 @@
           <header class="mobile-topbar">
             <button id="mobile-nav-button" class="mobile-nav-button" type="button" aria-label="Open navigation" aria-expanded="false"></button>
             <div class="mobile-topbar-copy">
-              <p class="mobile-topbar-eyebrow">Gattabara Games Operating System</p>
+              <p class="mobile-topbar-eyebrow">Gattabara Games Workflow</p>
               <h1 id="mobile-nav-title" class="mobile-topbar-title">Dashboard</h1>
             </div>
           </header>
@@ -66,6 +73,7 @@
         </div>
         <form class="form" autocomplete="off">
           <div id="form" class="form-grid"></div>
+          <p id="form-message" class="form-message" aria-live="polite"></p>
           <div class="form-actions">
             <button id="save-button" class="save-button" type="submit">Save</button>
           </div>
@@ -86,11 +94,8 @@
       </div>
     </div>
 
-    <script>
-      window.GATTABARA_GAMES_SUPABASE_URL = "";
-      window.GATTABARA_GAMES_SUPABASE_PUBLISHABLE_KEY = "";
-    </script>
-    <script src="node_modules/@supabase/supabase-js/dist/umd/supabase.js"></script>
-    <script src="app.js?v=20260704-1229" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.108.2/dist/umd/supabase.js"></script>
+    <script src="config.js?v=20260711-gg2"></script>
+    <script src="app.js?v=20260711-gg2" defer></script>
   </body>
 </html>
