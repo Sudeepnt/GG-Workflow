@@ -3992,8 +3992,8 @@ function renderRecordDetail(table, record) {
     ? visibleFields.filter((field) => field.name !== "body")
     : visibleFields;
   const renderDetailFieldValue = (field, display) => {
-    if (table.key === "documents" && field.name === "file_ref") {
-      const visitUrl = getDocumentVisitUrl(record);
+    if (field.name === "file_ref") {
+      const visitUrl = getRecordVisitUrl(record);
       if (visitUrl) {
         return `<a class="detail-field-link" href="${escapeHtml(visitUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(display)}</a>`;
       }
@@ -4080,6 +4080,7 @@ function renderRecordDetail(table, record) {
           <div class="detail-actions">
             <button class="record-action-button" type="button" data-detail-action="tree">${state.detailTreeOpen ? "Hide tree" : "Tree view"}</button>
             ${canShareRecord(table.key) ? `<button class="record-action-button" type="button" data-detail-action="share">Share</button>` : ""}
+            ${getRecordVisitUrl(record) ? `<button class="record-action-button" type="button" data-detail-action="visit">Visit</button>` : ""}
             ${renderRecordActionIconButton("edit", "Edit", 'data-detail-action="edit"')}
             ${canArchiveRecord(table.key)
               ? renderRecordActionIconButton(isRecordArchived(record) ? "restore" : "archive", isRecordArchived(record) ? "Restore" : "Archive", `data-detail-action="${isRecordArchived(record) ? "restore" : "archive"}"`)
@@ -6032,7 +6033,7 @@ function renderSerialNumber(value) {
   return `<span class="record-serial">${escapeHtml(String(value))}</span>`;
 }
 
-function getDocumentVisitUrl(record) {
+function getRecordVisitUrl(record) {
   const raw = String(record?.file_ref ?? "").trim();
   if (!raw) return "";
   try {
@@ -6056,7 +6057,7 @@ function renderRecordsBody(table, rows) {
       <td class="records-serial-cell">${renderSerialNumber(index + 1)}</td>
       ${table.listColumns.map((column) => `<td>${renderCellMarkup(table.key, column, row)}</td>`).join("")}
       <td class="records-actions-cell">
-        ${table.key === "documents" && getDocumentVisitUrl(row)
+        ${getRecordVisitUrl(row)
           ? `<button class="record-action-button" type="button" data-record-action="visit" data-record-id="${escapeHtml(row.id)}">Visit</button>`
           : ""}
         ${renderRecordActionIconButton("edit", `Edit ${row.name || row.title || row.reference || "record"}`, `data-record-action="edit" data-record-id="${escapeHtml(row.id)}"`)}
@@ -6531,7 +6532,7 @@ function bindRecordRowActions(table) {
       const { recordAction, recordId } = button.dataset;
       if (recordAction === "visit") {
         const record = data[table.key]?.find((item) => item.id === recordId) ?? null;
-        const visitUrl = getDocumentVisitUrl(record);
+        const visitUrl = getRecordVisitUrl(record);
         if (visitUrl) window.open(visitUrl, "_blank", "noopener,noreferrer");
       }
       if (recordAction === "edit") {
@@ -6643,6 +6644,10 @@ function renderHeroPanel() {
         if (action === "edit") openForm(detail.table.key, detail.record.id);
         if (action === "share") {
           openShareModal(detail.table, detail.record);
+        }
+        if (action === "visit") {
+          const visitUrl = getRecordVisitUrl(detail.record);
+          if (visitUrl) window.open(visitUrl, "_blank", "noopener,noreferrer");
         }
         if (action === "delete") {
           const deleted = await deleteRecord(detail.table.key, detail.record.id);
