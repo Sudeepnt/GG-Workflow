@@ -2069,6 +2069,101 @@ function formatLocalDateForInput(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeDateKey(value) {
+  const text = String(value ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "";
+  const parsed = new Date(`${text}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) || formatLocalDateForInput(parsed) !== text ? "" : text;
+}
+
+function formatDatePickerLabel(value) {
+  const dateKey = normalizeDateKey(value);
+  if (!dateKey) return "Select date";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${dateKey}T00:00:00`));
+}
+
+function getDatePickerMonthKey(value) {
+  const dateKey = normalizeDateKey(value) || formatLocalDateForInput();
+  return `${dateKey.slice(0, 7)}-01`;
+}
+
+function renderDatePickerCalendar(value, monthValue = "") {
+  const selectedKey = normalizeDateKey(value);
+  const monthKey = normalizeDateKey(monthValue) || getDatePickerMonthKey(selectedKey);
+  const monthDate = new Date(`${monthKey}T00:00:00`);
+  const monthLabel = new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    year: "numeric",
+  }).format(monthDate);
+  const gridStart = new Date(monthDate);
+  gridStart.setDate(1 - monthDate.getDay());
+  const todayKey = formatLocalDateForInput();
+  const dayButtons = Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(gridStart);
+    day.setDate(gridStart.getDate() + index);
+    const dayKey = formatLocalDateForInput(day);
+    const classes = [
+      "date-picker-day",
+      day.getMonth() === monthDate.getMonth() ? "" : "is-muted",
+      dayKey === selectedKey ? "is-selected" : "",
+      dayKey === todayKey ? "is-today" : "",
+    ].filter(Boolean).join(" ");
+    return `<button class="${classes}" type="button" data-date-select="${escapeHtml(dayKey)}">${day.getDate()}</button>`;
+  }).join("");
+
+  return `
+    <div class="date-picker-head">
+      <button type="button" data-date-month-shift="-1" aria-label="Previous month">‹</button>
+      <strong>${escapeHtml(monthLabel)}</strong>
+      <button type="button" data-date-month-shift="1" aria-label="Next month">›</button>
+    </div>
+    <div class="date-picker-weekdays" aria-hidden="true">
+      ${["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => `<span>${day}</span>`).join("")}
+    </div>
+    <div class="date-picker-days">
+      ${dayButtons}
+    </div>
+  `;
+}
+
+function renderDatePickerControl({ name = "", value = "", required = false, className = "", dataAttributes = "", ariaLabel = "", displayLabel = "" } = {}) {
+  const dateKey = normalizeDateKey(value) || formatLocalDateForInput();
+  const inputName = name ? `name="${escapeHtml(name)}"` : "";
+  const requiredAttr = required ? "data-required-date=\"true\"" : "";
+  const controlClass = ["date-picker-control", className].filter(Boolean).join(" ");
+  const label = displayLabel || formatDatePickerLabel(dateKey);
+  return `
+    <div class="${escapeHtml(controlClass)}" data-date-field data-date-month="${escapeHtml(getDatePickerMonthKey(dateKey))}">
+      <input type="hidden" ${inputName} value="${escapeHtml(dateKey)}" data-date-value ${requiredAttr} ${dataAttributes} />
+      <button class="date-picker-trigger" type="button" data-date-trigger aria-haspopup="dialog" aria-expanded="false" ${ariaLabel ? `aria-label="${escapeHtml(ariaLabel)}"` : ""}>
+        <span data-date-label>${escapeHtml(label)}</span>
+        <span class="date-picker-icon" aria-hidden="true">⌄</span>
+      </button>
+      <div class="date-picker-popover" data-date-picker hidden>
+        ${renderDatePickerCalendar(dateKey)}
+      </div>
+    </div>
+  `;
+}
+
+function renderDateField(field, fieldValue, required) {
+  const label = `${escapeHtml(field.label)}${field.required ? " *" : ""}`;
+  return `
+    <label class="form-field">
+      <span>${label}</span>
+      ${renderDatePickerControl({
+        name: field.name,
+        value: fieldValue,
+        required: Boolean(required),
+      })}
+    </label>
+  `;
+}
+
 function formatLocalDateTimeForInput(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -5650,11 +5745,13 @@ function renderGanttChart() {
               <button type="button" data-gantt-shift="1" aria-label="Show next day">›</button>
             </div>
             <button class="gantt-today-button" type="button" data-gantt-today="true">Today</button>
-            <label class="gantt-date-button">
-              <span>${escapeHtml(dateRangeLabel)}</span>
-              <span>⌄</span>
-              <input class="gantt-date-input" type="date" value="${escapeHtml(weekStartKey)}" data-gantt-date aria-label="Choose Gantt start date" />
-            </label>
+            ${renderDatePickerControl({
+              value: weekStartKey,
+              className: "gantt-date-picker",
+              dataAttributes: "data-gantt-date",
+              ariaLabel: `Choose Gantt start date, ${dateRangeLabel}`,
+              displayLabel: dateRangeLabel,
+            })}
           </div>
           <div class="gantt-stat-strip">
             <div><strong>${projectRows.length}</strong><span>Projects</span></div>
@@ -7778,6 +7875,19 @@ function renderInlinePrimaryContactPersonFields() {
             `;
           }
 
+          if (field.type === "date") {
+            return `
+              <label class="form-field">
+                <span>${label}</span>
+                ${renderDatePickerControl({
+                  name: inputName,
+                  value: formatLocalDateForInput(),
+                  required: Boolean(field.required),
+                })}
+              </label>
+            `;
+          }
+
           return `
             <label class="form-field">
               <span>${label}</span>
@@ -7961,6 +8071,10 @@ function renderField(field, record = null, currentTableKey = "") {
     `;
   }
 
+  if (field.type === "date") {
+    return renderDateField(field, fieldValue, required);
+  }
+
   return `
     <label class="form-field">
       <span>${label}</span>
@@ -8060,6 +8174,94 @@ function openAdminUserForm(userId = null) {
   bindFormattedInputs();
   setFormMessage("");
   setAdminFormMessage("");
+}
+
+function closeDatePickers(exceptField = null) {
+  document.querySelectorAll("[data-date-field]").forEach((field) => {
+    if (field === exceptField) return;
+    field.classList.remove("is-open");
+    field.querySelector("[data-date-picker]")?.setAttribute("hidden", "");
+    field.querySelector("[data-date-trigger]")?.setAttribute("aria-expanded", "false");
+  });
+}
+
+function setDatePickerOpen(field, isOpen) {
+  const input = field?.querySelector("[data-date-value]");
+  const picker = field?.querySelector("[data-date-picker]");
+  const trigger = field?.querySelector("[data-date-trigger]");
+  if (!(field instanceof HTMLElement) || !(input instanceof HTMLInputElement) || !(picker instanceof HTMLElement)) return;
+
+  if (isOpen) {
+    const monthKey = normalizeDateKey(field.dataset.dateMonth) || getDatePickerMonthKey(input.value);
+    field.dataset.dateMonth = monthKey;
+    picker.innerHTML = renderDatePickerCalendar(input.value, monthKey);
+    field.classList.add("is-open");
+    picker.removeAttribute("hidden");
+    trigger?.setAttribute("aria-expanded", "true");
+    return;
+  }
+
+  field.classList.remove("is-open");
+  picker.setAttribute("hidden", "");
+  trigger?.setAttribute("aria-expanded", "false");
+}
+
+function shiftDatePickerMonth(field, shift) {
+  const picker = field?.querySelector("[data-date-picker]");
+  const input = field?.querySelector("[data-date-value]");
+  if (!(field instanceof HTMLElement) || !(picker instanceof HTMLElement) || !(input instanceof HTMLInputElement)) return;
+  const currentMonth = normalizeDateKey(field.dataset.dateMonth) || getDatePickerMonthKey(input.value);
+  const nextMonth = new Date(`${currentMonth}T00:00:00`);
+  nextMonth.setMonth(nextMonth.getMonth() + shift);
+  nextMonth.setDate(1);
+  field.dataset.dateMonth = formatLocalDateForInput(nextMonth);
+  picker.innerHTML = renderDatePickerCalendar(input.value, field.dataset.dateMonth);
+}
+
+function selectDatePickerDate(field, dateKey) {
+  const normalized = normalizeDateKey(dateKey);
+  const input = field?.querySelector("[data-date-value]");
+  const label = field?.querySelector("[data-date-label]");
+  if (!(field instanceof HTMLElement) || !(input instanceof HTMLInputElement) || !normalized) return;
+  input.value = normalized;
+  field.dataset.dateMonth = getDatePickerMonthKey(normalized);
+  if (label) label.textContent = formatDatePickerLabel(normalized);
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  setDatePickerOpen(field, false);
+}
+
+function handleDatePickerClick(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+
+  const trigger = target.closest("[data-date-trigger]");
+  if (trigger instanceof HTMLElement) {
+    const field = trigger.closest("[data-date-field]");
+    if (!(field instanceof HTMLElement)) return;
+    const shouldOpen = !field.classList.contains("is-open");
+    closeDatePickers(field);
+    setDatePickerOpen(field, shouldOpen);
+    event.preventDefault();
+    return;
+  }
+
+  const monthButton = target.closest("[data-date-month-shift]");
+  if (monthButton instanceof HTMLElement) {
+    shiftDatePickerMonth(monthButton.closest("[data-date-field]"), Number(monthButton.dataset.dateMonthShift || 0));
+    event.preventDefault();
+    return;
+  }
+
+  const dayButton = target.closest("[data-date-select]");
+  if (dayButton instanceof HTMLElement) {
+    selectDatePickerDate(dayButton.closest("[data-date-field]"), dayButton.dataset.dateSelect);
+    event.preventDefault();
+    return;
+  }
+
+  if (!target.closest("[data-date-field]")) {
+    closeDatePickers();
+  }
 }
 
 function setFormMessage(message = "") {
@@ -8789,6 +8991,11 @@ async function deleteRecord(tableKey, recordId) {
 }
 
 function bindEvents() {
+  document.addEventListener("click", handleDatePickerClick);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDatePickers();
+  });
+
   el.loginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     await loginApp(String(el.loginPassword?.value ?? "").trim());
